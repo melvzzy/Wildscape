@@ -4,6 +4,7 @@
 [ext_resource type="Texture2D" path="res://scenes/island/flat_normal.res" id="2_qukhl"]
 [ext_resource type="Texture2D" path="res://scenes/island/earth.res" id="3_pby43"]
 [ext_resource type="Texture2D" path="res://scenes/island/stone.res" id="4_pnds7"]
+[ext_resource type="Texture2D" path="res://scenes/island/sand.res" id="5_sand"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hmtgk"]
 transparency = 4
@@ -25,6 +26,8 @@ lod0_range = 128.0
 
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_o481l"]
 name = "Grass"
+normal_depth = 0.0
+ao_strength = 0.0
 albedo_texture = ExtResource("1_hmtgk")
 normal_texture = ExtResource("2_qukhl")
 uv_scale = 0.25
@@ -32,6 +35,8 @@ uv_scale = 0.25
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_kma6x"]
 name = "Earth"
 id = 1
+normal_depth = 0.0
+ao_strength = 0.0
 albedo_texture = ExtResource("3_pby43")
 normal_texture = ExtResource("2_qukhl")
 uv_scale = 0.25
@@ -39,10 +44,21 @@ uv_scale = 0.25
 [sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_60sdg"]
 name = "Stone"
 id = 2
+normal_depth = 0.0
+ao_strength = 0.0
 albedo_texture = ExtResource("4_pnds7")
+normal_texture = ExtResource("2_qukhl")
+uv_scale = 0.25
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_sand"]
+name = "Sand"
+id = 3
+normal_depth = 0.0
+ao_strength = 0.0
+albedo_texture = ExtResource("5_sand")
 normal_texture = ExtResource("2_qukhl")
 uv_scale = 0.25
 
 [resource]
 mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_qukhl")])
-texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_o481l"), SubResource("Terrain3DTextureAsset_kma6x"), SubResource("Terrain3DTextureAsset_60sdg")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_o481l"), SubResource("Terrain3DTextureAsset_kma6x"), SubResource("Terrain3DTextureAsset_60sdg"), SubResource("Terrain3DTextureAsset_sand")])

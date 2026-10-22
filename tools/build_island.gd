@@ -1,263 +1,226 @@
 extends SceneTree
-## OFFLINE authoring only. Replaces later sculpting; normal play loads saved data.
+## OFFLINE Task 8 adaptation of saved terrain, never a runtime world generator.
 
-const DIRECTORY := "res://scenes/island"
-const BACKUP := DIRECTORY + "/backups/task_7_6/terrain3d_00_00.res"
-const BACKUP_SHA256 := "6e384434cfcb55b0d22e4443734e118380cfe48b434742de4323d8fa13a38f9d"
-const SIZE := 1024
-const FIELD_SIZE := 513
-# Uneven landmark spacing: deep northern gulf, sheltered western inlet,
-# long eastern coast and broad southern peninsula. No alternating scallops.
-const COAST := [Vector2(145, 135), Vector2(265, 62), Vector2(420, 72), Vector2(495, 112), Vector2(515, 205), Vector2(575, 225), Vector2(665, 145), Vector2(760, 125), Vector2(860, 175), Vector2(900, 295), Vector2(875, 390), Vector2(940, 500), Vector2(915, 610), Vector2(865, 690), Vector2(900, 800), Vector2(835, 915), Vector2(695, 940), Vector2(565, 905), Vector2(490, 945), Vector2(335, 920), Vector2(200, 865), Vector2(140, 770), Vector2(110, 660), Vector2(185, 580), Vector2(210, 525), Vector2(165, 490), Vector2(68, 435), Vector2(72, 300), Vector2(115, 230)]
-const LAKE := [Vector2(456, 468), Vector2(466, 405), Vector2(489, 385), Vector2(546, 390), Vector2(585, 410), Vector2(630, 440), Vector2(637, 485), Vector2(608, 510), Vector2(575, 520), Vector2(550, 552), Vector2(514, 562), Vector2(478, 540), Vector2(478, 507), Vector2(457, 493)]
-# (X, elevation above lowland, Z). Uneven crests and branching spurs.
-const WEST := [Vector3(320, 0, 180), Vector3(350, 58, 250), Vector3(304, 84, 326), Vector3(342, 69, 382), Vector3(316, 65, 442), Vector3(352, 40, 510), Vector3(330, 0, 585)]
-const WEST_OUTER := [Vector3(304, 73, 326), Vector3(255, 41, 366), Vector3(222, 19, 425), Vector3(240, 0, 475)]
-const WEST_INNER := [Vector3(342, 57, 382), Vector3(395, 29, 426), Vector3(432, 9, 475), Vector3(462, 0, 510)]
-const WEST_SOUTH := [Vector3(316, 42, 442), Vector3(275, 23, 492), Vector3(290, 0, 560)]
-const EAST := [Vector3(708, 0, 350), Vector3(734, 39, 412), Vector3(705, 67, 480), Vector3(748, 40, 532), Vector3(708, 56, 586), Vector3(732, 23, 638), Vector3(680, 0, 700)]
-const EAST_INNER := [Vector3(705, 58, 480), Vector3(655, 30, 455), Vector3(610, 8, 405), Vector3(576, 0, 378)]
-const EAST_OUTER := [Vector3(708, 49, 586), Vector3(777, 22, 610), Vector3(810, 0, 650)]
-const NORTH := [Vector3(390, 0, 235), Vector3(435, 14, 255), Vector3(510, 21, 222), Vector3(570, 13, 270), Vector3(635, 0, 320)]
-var noise := FastNoiseLite.new()
-var coast_field := PackedFloat32Array()
-var lake_polygon := PackedVector2Array()
-var lake_distances := PackedFloat32Array()
+const BASE := "res://scenes/island/backups/task_7_8/data/terrain3d_00_00.res"
+const BASE_HASH := "d9591a794a001a8fba88b8c7e959699d61a9ab25b033cce14cc255f0b24961b1"
+const DATA := "res://scenes/island/data"
+const STAGE := "res://.godot/compact_island_stage"
+const SIZE := 768
+# Inverse, monotone mapping: reserve more width for the valley and lake;
+# compact outer highlands more. Cubic tangents prevent slope seams at knots.
+const NEW_X := [0.0, 184.0, 284.0, 384.0, 496.0, 584.0, 767.0]
+const OLD_X := [0.0, 256.0, 400.0, 512.0, 640.0, 768.0, 1023.0]
+const NEW_Z := [0.0, 228.0, 270.0, 354.0, 456.0, 526.0, 650.0, 767.0]
+const OLD_Z := [0.0, 320.0, 380.0, 480.0, 600.0, 700.0, 850.0, 1023.0]
+var distance := PackedFloat32Array()
+var nearest := PackedInt32Array()
+var shore_points := PackedVector2Array()
 
 
 func _initialize() -> void:
-	if FileAccess.get_sha256(DIRECTORY + "/data/terrain3d_00_00.res") != BACKUP_SHA256:
-		push_error("Full-island V7 rebuild refused: active data contains later terrain edits. Use the guarded local refine_island.gd workflow instead.")
-		quit(1)
-		return
-	if not "--write-island-v7" in OS.get_cmdline_user_args() or FileAccess.get_sha256(BACKUP) != BACKUP_SHA256:
-		push_error("Rebuild requires -- --write-island-v7 and the unchanged Task 7.6 native backup. Later sculpting WILL be replaced.")
+	var input_regions := 0
+	for file in DirAccess.get_files_at(DATA):
+		input_regions += int(file.ends_with(".res"))
+	if not "--compact-island-v80" in OS.get_cmdline_user_args() or input_regions != 1 or FileAccess.get_sha256(BASE) != BASE_HASH or FileAccess.get_sha256(DATA + "/terrain3d_00_00.res") != BASE_HASH:
+		push_error("Requires -- --compact-island-v80 and hash-matching Task 7.8 active data/backup. Later sculpting and repeated runs are protected.")
 		quit(1)
 		return
 	_build.call_deferred()
 
 
-func _outline(points: Array) -> PackedVector2Array:
-	var result := PackedVector2Array()
-	for i in points.size():
-		var a: Vector2 = points[posmod(i - 1, points.size())]
-		var b: Vector2 = points[i]
-		var c: Vector2 = points[(i + 1) % points.size()]
-		var d: Vector2 = points[(i + 2) % points.size()]
-		for step in 6:
-			var t := step / 6.0
-			result.append(0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (-a + 3 * b - 3 * c + d) * t * t * t))
-	return result
+func _axis(p: float, positions: Array, samples: Array) -> float:
+	var i := 0
+	while i < positions.size() - 2 and p > positions[i + 1]:
+		i += 1
+	var span: float = positions[i + 1] - positions[i]
+	var slope: float = (samples[i + 1] - samples[i]) / span
+	var left := slope
+	var right := slope
+	if i > 0:
+		var previous: float = (samples[i] - samples[i - 1]) / (positions[i] - positions[i - 1])
+		left = 2 * slope * previous / (slope + previous)
+	if i < positions.size() - 2:
+		var next: float = (samples[i + 2] - samples[i + 1]) / (positions[i + 2] - positions[i + 1])
+		right = 2 * slope * next / (slope + next)
+	var t := clampf((p - positions[i]) / span, 0, 1)
+	return (2*t*t*t - 3*t*t + 1) * samples[i] + (t*t*t - 2*t*t + t) * span * left + (-2*t*t*t + 3*t*t) * samples[i + 1] + (t*t*t - t*t) * span * right
 
 
-func _signed_distance(p: Vector2, polygon: PackedVector2Array) -> float:
-	var distance := INF
-	var inside := false
-	for i in polygon.size():
-		var a := polygon[i]
-		var b := polygon[(i + 1) % polygon.size()]
-		var segment := b - a
-		var t := clampf((p - a).dot(segment) / segment.length_squared(), 0, 1)
-		distance = minf(distance, p.distance_squared_to(a + segment * t))
-		# Half-open crossings avoid a reproducible native containment false
-		# negative at (302, 738), which otherwise creates an isolated 18 m pit
-		# when interpolating the coast field. Keep this offline only.
-		if (a.y > p.y) != (b.y > p.y):
-			if p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x:
-				inside = not inside
-	return sqrt(distance) * (1 if inside else -1)
+func _sample(image: Image, p: Vector2) -> float:
+	var x := clampi(floori(p.x), 0, 1022)
+	var z := clampi(floori(p.y), 0, 1022)
+	return lerpf(lerpf(image.get_pixel(x, z).r, image.get_pixel(x + 1, z).r, p.x - x), lerpf(image.get_pixel(x, z + 1).r, image.get_pixel(x + 1, z + 1).r, p.x - x), p.y - z)
 
 
-func _shore(x: int, z: int) -> float:
-	var ix := x / 2
-	var iz := z / 2
-	return lerpf(lerpf(coast_field[iz * FIELD_SIZE + ix], coast_field[iz * FIELD_SIZE + ix + 1], (x % 2) / 2.0), lerpf(coast_field[(iz + 1) * FIELD_SIZE + ix], coast_field[(iz + 1) * FIELD_SIZE + ix + 1], (x % 2) / 2.0), (z % 2) / 2.0)
+func _propagate(x: int, z: int, offsets: Array[Vector2i]) -> void:
+	var index := z * SIZE + x
+	for offset in offsets:
+		var nx := x + offset.x
+		var nz := z + offset.y
+		if nx < 0 or nz < 0 or nx >= SIZE or nz >= SIZE:
+			continue
+		var neighbor := nz * SIZE + nx
+		var candidate := distance[neighbor] + (1.41421356 if offset.x != 0 and offset.y != 0 else 1.0)
+		if candidate < distance[index]:
+			distance[index] = candidate
+			nearest[index] = nearest[neighbor]
 
 
-func _join(a: float, b: float, smoothing: float = 5.0) -> float:
-	# Rounded union removes max() creases at segment/spur intersections. Its
-	# support shrinks to zero at the feet, so empty plains are never lifted.
-	var k := minf(smoothing, minf(a, b) * 0.7)
-	if k <= 0.0001:
-		return maxf(a, b)
-	return maxf(a, b) + pow(maxf(k - absf(a - b), 0), 2) / (4 * k)
-
-
-func _ridge(p: Vector2, points: Array, width: float) -> float:
-	var result := 0.0
-	for i in points.size() - 1:
-		var a: Vector3 = points[i]
-		var b: Vector3 = points[i + 1]
-		var start := Vector2(a.x, a.z)
-		var segment := Vector2(b.x, b.z) - start
-		var t := clampf((p - start).dot(segment) / segment.length_squared(), 0, 1)
-		var distance := p.distance_to(start + segment * t)
-		# Sharp crest with long convex flanks ending tangentially in the lowlands.
-		# Linear crest interpolation had a derivative jump where the projected
-		# segment parameter clamps at either end: large triangular normal patches
-		# extended across the northern rim and mountain shoulders. Zero endpoint
-		# derivatives remove those planes without blurring the whole heightmap.
-		var elevation := lerpf(a.y, b.y, smoothstep(0, 1, t))
-		# Round just the exposed crest's central few meters, retaining definition.
-		var rounded_distance := sqrt(distance * distance + 36.0) - 6.0
-		var q := clampf(rounded_distance / width, 0, 1)
-		# The low northern rim and foothills need rounded tops; only the high
-		# mountain crests retain the sharper cross-section of an exposed ridge.
-		var profile := lerpf(1.0 - smoothstep(0, 1, q), pow(1 - q, 2.1), smoothstep(25, 50, elevation))
-		result = _join(result, elevation * profile)
-	return result
-
-
-func _hill(p: Vector2, center: Vector2, radii: Vector2, height: float) -> float:
-	return height * exp(-((p - center) / radii).length_squared() * 1.8)
-
-
-func _plateau(p: Vector2, center: Vector2, radii: Vector2, height: float) -> float:
-	return height * (1.0 - smoothstep(0.3, 1.35, ((p - center) / radii).length()))
+func _refine_distance(x: int, z: int, field: PackedFloat32Array, offsets: Array[Vector2i]) -> void:
+	var index := z * SIZE + x
+	for offset in offsets:
+		var nx := x + offset.x
+		var nz := z + offset.y
+		if nx < 0 or nz < 0 or nx >= SIZE or nz >= SIZE:
+			continue
+		var seed := nearest[nz * SIZE + nx]
+		var candidate := Vector2(x, z).distance_to(shore_points[seed])
+		if candidate < field[index]:
+			field[index] = candidate
+			nearest[index] = seed
 
 
 func _rocky_coast(p: Vector2) -> float:
-	var weight := maxf(_hill(p, Vector2(885, 285), Vector2(65, 100), 1), _hill(p, Vector2(72, 380), Vector2(42, 100), 1))
-	weight = maxf(weight, _hill(p, Vector2(890, 795), Vector2(50, 65), 1))
-	weight = maxf(weight, _hill(p, Vector2(280, 65), Vector2(95, 48), 1))
-	return maxf(weight, _hill(p, Vector2(940, 500), Vector2(55, 105), 1))
-
-
-func _height(x: int, z: int) -> float:
-	var p := Vector2(x, z)
-	var shore := _shore(x, z)
-	if shore < -120:
-		return -8.0
-	# Authored coastal sectors give narrow northern/eastern beaches and broad
-	# western/southern bays, rather than a uniform sandy ribbon around the map.
-	var beach_width := 27.0 + _hill(p, Vector2(200, 830), Vector2(140, 100), 58)
-	beach_width += _hill(p, Vector2(210, 525), Vector2(70, 115), 55)
-	beach_width += _hill(p, Vector2(510, 940), Vector2(150, 75), 70)
-	var cliff := _rocky_coast(p)
-	beach_width = lerpf(beach_width, 13, cliff)
-	# A nonzero shoreline grade prevents near-coplanar sea/terrain strips from
-	# flickering or turning into long stair-stepped fingers under native LOD.
-	var base := 9.0 * tanh(shore / beach_width) if shore >= 0 else 8.0 * tanh(shore / 25.0)
-	base += cliff * 13.0 * smoothstep(0, 42, shore)
-	var inland := smoothstep(0, 65, shore)
-	var warped := p + Vector2(noise.get_noise_2d(x, z), noise.get_noise_2d(x + 1234, z)) * 4.0
-	var west := _join(_ridge(warped, WEST, 155), _ridge(warped, WEST_OUTER, 110))
-	west = _join(west, _join(_ridge(warped, WEST_INNER, 110), _ridge(warped, WEST_SOUTH, 100)))
-	var east := _join(_ridge(warped, EAST, 147), _join(_ridge(warped, EAST_INNER, 105), _ridge(warped, EAST_OUTER, 104)))
-	var mountains := maxf(west, east)
-	# Relief belongs to mountain faces, never to the entire valley floor.
-	mountains *= 1.0 + noise.get_noise_2d(x * 1.8, z * 1.8) * 0.018
-	# Different drainage systems break the broad faces into connected shoulders
-	# and shallow gullies. These are local cuts, not an island-wide erosion pass.
-	var west_gully := _ridge(p, [Vector3(286, 0, 340), Vector3(263, 7, 400), Vector3(280, 6, 470), Vector3(250, 0, 550)], 24)
-	west_gully = maxf(west_gully, _ridge(p, [Vector3(335, 0, 350), Vector3(378, 8, 404), Vector3(408, 5, 455), Vector3(440, 0, 515)], 26))
-	var east_gully := _ridge(p, [Vector3(730, 0, 440), Vector3(687, 7, 520), Vector3(665, 5, 570), Vector3(650, 0, 630)], 25)
-	east_gully = maxf(east_gully, _ridge(p, [Vector3(750, 0, 480), Vector3(789, 6, 518), Vector3(800, 0, 572)], 22))
-	mountains -= maxf(west_gully, east_gully) * smoothstep(3, 20, mountains)
-	# Connected basal uplands carry the massifs into the rest of the island.
-	var uplands := _hill(p, Vector2(285, 330), Vector2(190, 245), 18)
-	uplands += _hill(p, Vector2(760, 465), Vector2(175, 220), 16)
-	uplands += _ridge(p, [Vector3(340, 24, 485), Vector3(350, 19, 585), Vector3(300, 11, 660), Vector3(240, 0, 710)], 165)
-	uplands += _ridge(p, [Vector3(730, 25, 610), Vector3(705, 23, 700), Vector3(660, 11, 775), Vector3(625, 0, 830)], 155)
-	# Deliberately different medium-scale landscapes, rather than isolated bumps.
-	var hills := _plateau(p, Vector2(285, 745), Vector2(145, 110), 15)
-	hills += _ridge(p, [Vector3(245, 0, 810), Vector3(355, 23, 835), Vector3(430, 16, 805), Vector3(485, 0, 815)], 125)
-	hills += _ridge(p, [Vector3(875, 0, 750), Vector3(805, 27, 810), Vector3(705, 19, 863), Vector3(640, 0, 890)], 125)
-	hills += _plateau(p, Vector2(810, 280), Vector2(95, 125), 13)
-	hills += _plateau(p, Vector2(645, 255), Vector2(95, 85), 12)
-	hills += _hill(p, Vector2(195, 180), Vector2(95, 90), 10)
-	hills += _hill(p, Vector2(690, 570), Vector2(115, 85), 10)
-	hills += _hill(p, Vector2(435, 600), Vector2(95, 95), 8)
-	hills -= _ridge(p, [Vector3(235, 0, 675), Vector3(325, 5, 710), Vector3(400, 4, 745), Vector3(460, 0, 760)], 52)
-	hills -= _hill(p, Vector2(810, 720), Vector2(95, 65), 4)
-	# Keep a broad, gently meandering valley between the regional uplands.
-	var valley_x := 520.0 + 18.0 * sin((z - 400.0) / 210.0)
-	var valley := exp(-pow((x - valley_x) / 105.0, 4))
-	valley *= smoothstep(300, 400, z) * (1.0 - smoothstep(760, 870, z))
-	var regional := (uplands + hills) * (1.0 - valley * 0.82)
-	var h := base + (mountains + _ridge(p, NORTH, 140) + regional) * inland
-	# The rising outside profile rejoins existing heights before these margins.
-	# Unlike blending toward a flat shelf, it does not excavate mountain faces.
-	if x > 320 and x < 760 and z > 290 and z < 680:
-		var d := _signed_distance(p, lake_polygon)
-		lake_distances[z * SIZE + x] = d
-		var bank := maxf(-d, 0)
-		var basin := 5.0 - 3.2 * tanh(d / 12) if d >= 0 else 5.0 + 0.18 * bank + 0.005 * bank * bank
-		var islet := _plateau(p, Vector2(538, 488), Vector2(24, 16), 5.6)
-		islet += _hill(p, Vector2(552, 482), Vector2(12, 13), 1.1)
-		if d >= 0:
-			h = basin + islet
-		else:
-			# Smooth minimum only lowers the ground where the rising basin cuts
-			# into it. Open valley ground and the ridge crests remain untouched.
-			var rounding := minf(2.0, bank * 0.2)
-			var overlap := maxf(rounding - absf(h - basin), 0)
-			var lowered := minf(h, basin) - overlap * overlap / maxf(4 * rounding, 0.0001)
-			h = lerpf(h, lowered, 1.0 - smoothstep(18, 65, bank))
-	return h
+	# Smoothly adapted locations of the original five rocky headlands.
+	# Nearest-shore labels are unsuitable here: their Voronoi borders make
+	# narrow normal/shading streaks even when height jumps stay small.
+	var result := 0.0
+	for cape in [Vector4(666, 203, 46, 71), Vector4(52, 270, 30, 70), Vector4(670, 605, 36, 46), Vector4(200, 46, 68, 34), Vector4(710, 371, 40, 75)]:
+		result = maxf(result, exp(-1.8 * ((p - Vector2(cape.x, cape.y)) / Vector2(cape.z, cape.w)).length_squared()))
+	return result
 
 
 func _build() -> void:
-	noise.seed = 74019
-	noise.frequency = 0.018
-	noise.fractal_octaves = 2
-	var polygon := _outline(COAST)
-	lake_polygon = _outline(LAKE)
-	coast_field.resize(FIELD_SIZE * FIELD_SIZE)
-	lake_distances.resize(SIZE * SIZE)
-	lake_distances.fill(-INF)
-	for z in FIELD_SIZE:
-		for x in FIELD_SIZE:
-			coast_field[z * FIELD_SIZE + x] = _signed_distance(Vector2(x * 2, z * 2), polygon)
-	print("V7 controlled polish: expanded lake basin and walkable islet; selected broader beaches; preserved massifs and uplands")
+	var baseline: Terrain3DRegion = load(BASE)
+	var old_height := baseline.get_height_map()
+	var old_control := baseline.get_control_map()
+	var old_color := baseline.get_color_map()
 	var height := Image.create_empty(SIZE, SIZE, false, Image.FORMAT_RF)
+	var control := Image.create_empty(SIZE, SIZE, false, Image.FORMAT_RF)
 	var colors := Image.create_empty(SIZE, SIZE, false, Image.FORMAT_RGBA8)
 	for z in SIZE:
 		for x in SIZE:
-			height.set_pixel(x, z, Color(_height(x, z), 0, 0))
-			var shade := 0.96 + noise.get_noise_2d(x, z) * 0.035
-			colors.set_pixel(x, z, Color(shade, shade, shade, 0.5))
+			var source := Vector2(_axis(x, NEW_X, OLD_X), _axis(z, NEW_Z, OLD_Z))
+			# Retain the useful islet's physical walking footprint, not 75% of it.
+			var delta := Vector2(x, z) - Vector2(407, 361)
+			var islet_weight := 1 - smoothstep(25, 45, delta.length())
+			source = source.lerp(Vector2(538, 488) + delta, islet_weight)
+			var h := _sample(old_height, source)
+			if h > 9:
+				h = 9 + (h - 9) * lerpf(0.75, 0.70, smoothstep(25, 90, h))
+			height.set_pixel(x, z, Color(h, 0, 0))
+			var pixel := Vector2i(clampi(roundi(source.x), 0, 1023), clampi(roundi(source.y), 0, 1023))
+			# Encoded control bits must never be bilinearly interpolated.
+			control.blit_rect(old_control, Rect2i(pixel, Vector2i.ONE), Vector2i(x, z))
+			colors.set_pixel(x, z, old_color.get_pixelv(pixel))
+	print("Compact source adaptation ready; building coastal distance field")
+	distance.resize(SIZE * SIZE)
+	distance.fill(INF)
+	nearest.resize(SIZE * SIZE)
+	shore_points.resize(SIZE * SIZE)
+	# Fractional shoreline seeds keep the actual zero crossing rather than
+	# quantizing the water edge to a one-meter staircase.
+	for z in range(1, SIZE - 1):
+		for x in range(1, SIZE - 1):
+			var h := height.get_pixel(x, z).r
+			for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				var other: float = height.get_pixel(x + offset.x, z + offset.y).r
+				if (h > 0) != (other > 0):
+					var fraction := absf(h) / maxf(absf(h) + absf(other), 0.00001)
+					var index := z * SIZE + x
+					if fraction < distance[index]:
+						distance[index] = fraction
+						nearest[index] = index if h > 0 else (z + offset.y) * SIZE + x + offset.x
+						shore_points[index] = Vector2(x, z) + Vector2(offset) * fraction
+	for z in SIZE:
+		for x in SIZE:
+			_propagate(x, z, [Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)])
+	for z in range(SIZE - 1, -1, -1):
+		for x in range(SIZE - 1, -1, -1):
+			_propagate(x, z, [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1)])
+	# Euclidean distance to fractional shore points avoids eight-direction
+	# wavefronts on both the seabed and the low coastal slopes.
+	var coast_distance := distance.duplicate()
+	for z in SIZE:
+		for x in SIZE:
+			coast_distance[z * SIZE + x] = Vector2(x, z).distance_to(shore_points[nearest[z * SIZE + x]])
+	for z in SIZE:
+		for x in SIZE:
+			_refine_distance(x, z, coast_distance, [Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)])
+	for z in range(SIZE - 1, -1, -1):
+		for x in range(SIZE - 1, -1, -1):
+			_refine_distance(x, z, coast_distance, [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1)])
+	var raw := height.duplicate() as Image
+	for z in SIZE:
+		for x in SIZE:
+			var index := z * SIZE + x
+			var rock := _rocky_coast(Vector2(x, z))
+			var d := coast_distance[index]
+			var h := raw.get_pixel(x, z).r
+			if h <= 0:
+				# Nearest-shore labels can change across offshore medial axes.
+				# Fade their influence before deep water to avoid Voronoi walls.
+				var local_rock := rock * (1 - smoothstep(8, 32, d))
+				var depth := lerpf(0.13, 0.30, local_rock) * d + 0.0015 * d * d
+				h = -38 * tanh(depth / 38)
+				h += 0.45 * sin(x / 53.0) * sin(z / 67.0) * smoothstep(15, 50, d) * (1 - smoothstep(110, 180, d))
+			else:
+				# Wider sandy lowlands stay gentle; elevated rocky shores remain.
+				var beach := (1 - rock) * (1 - smoothstep(15, 55, d))
+				h = lerpf(h, h * lerpf(0.8, 1, smoothstep(3, 10, h)), beach)
+				var rocky_approach := rock * (1 - smoothstep(10, 60, d)) * (1 - smoothstep(12, 28, h))
+				h *= 1 - 0.25 * rocky_approach
+			height.set_pixel(x, z, Color(h, 0, 0))
+	# Bound only resampling overshoots on steep lower faces; never blur peaks
+	# or smooth the whole island to conceal a mesh/material issue.
+	var limited := 0
+	for pass_index in 3:
+		var snapshot := height.duplicate() as Image
+		for z in range(1, SIZE - 1):
+			for x in range(1, SIZE - 1):
+				var h := snapshot.get_pixel(x, z).r
+				if h < 9 or h > 58:
+					continue
+				var revised := h
+				for offset in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+					var neighbor: float = snapshot.get_pixel(x + offset.x, z + offset.y).r
+					revised = clampf(revised, neighbor - 2.3, neighbor + 2.3)
+				if revised != h:
+					limited += 1
+					height.set_pixel(x, z, Color(revised, 0, 0))
 	var world := Node3D.new()
 	root.add_child(world)
 	var camera := Camera3D.new()
 	world.add_child(camera)
-	camera.position = Vector3(500, 60, 650)
+	camera.position = Vector3(376, 60, 494)
 	camera.current = true
 	var terrain := Terrain3D.new()
 	world.add_child(terrain)
 	terrain.set_camera(camera)
-	terrain.region_size = Terrain3D.SIZE_1024
-	terrain.data.import_images([height, null, colors], Vector3.ZERO, 0, 1)
-	for z in SIZE:
-		for x in SIZE:
-			var h := height.get_pixel(x, z).r
-			# Broad paint gradients follow landforms, not single-pixel normal noise.
-			var slope := Vector2(height.get_pixel(mini(x + 3, SIZE - 1), z).r - height.get_pixel(maxi(x - 3, 0), z).r, height.get_pixel(x, mini(z + 3, SIZE - 1)).r - height.get_pixel(x, maxi(z - 3, 0)).r).length() / 6.0
-			var sand := 1.0 - smoothstep(1.8, 5.0, h)
-			var lake_distance := lake_distances[z * SIZE + x]
-			if is_finite(lake_distance):
-				# Signed-distance banks avoid the old rectangular paint mask and
-				# avoid painting a sand ring on the grass-topped central islet.
-				sand = maxf(sand, (1.0 - smoothstep(5.0, 8.0, h)) * (1.0 - smoothstep(2, 16, lake_distance)))
-			var rock := maxf(smoothstep(0.4, 0.95, slope), smoothstep(48, 85, h) * 0.85) * smoothstep(3, 9, h)
-			if not is_finite(lake_distance):
-				rock = maxf(rock, _rocky_coast(Vector2(x, z)) * (1.0 - smoothstep(10, 40, _shore(x, z))))
-			sand *= 1.0 - rock
-			var grass := maxf(0, 1.0 - sand - rock)
-			var point := Vector3(x, 0, z)
-			# Keep the two strongest weights, rather than abruptly changing the
-			# overlay ID as soon as rock exceeds 5%, which erased sandy shores.
-			if grass <= minf(sand, rock):
-				terrain.data.set_control_base_id(point, 1)
-				terrain.data.set_control_overlay_id(point, 2)
-				terrain.data.set_control_blend(point, rock / maxf(sand + rock, 0.0001))
-			else:
-				terrain.data.set_control_base_id(point, 0)
-				terrain.data.set_control_overlay_id(point, 2 if rock > sand else 1)
-				terrain.data.set_control_blend(point, maxf(rock, sand) / maxf(grass + maxf(rock, sand), 0.0001))
-	terrain.data.update_maps()
-	terrain.data.save_directory(DIRECTORY + "/data")
-	print("ISLAND V7 SAVED: regions=", terrain.data.get_region_count(), " range=", terrain.data.get_height_range(), " spawn=", terrain.data.get_height(Vector3(500, 0, 650)))
+	terrain.region_size = Terrain3D.SIZE_256
+	terrain.data.import_images([height, control, colors], Vector3.ZERO, 0, 1)
+	if terrain.data.get_region_count() != 9:
+		push_error("Expected precisely nine native 256 m regions; active data was not touched")
+		quit(1)
+		return
+	terrain.data.save_directory(STAGE)
+	terrain.data.load_directory(STAGE)
+	var valid := terrain.data.get_region_count() == 9
+	for region_z in 3:
+		for region_x in 3:
+			var location := Vector2i(region_x, region_z)
+			var region: Terrain3DRegion = terrain.data.get_region(location)
+			valid = valid and region != null and region.get_height_map().get_size() == Vector2i(256, 256)
+			if region != null:
+				valid = valid and region.get_height_map().get_data() == height.get_region(Rect2i(location * 256, Vector2i(256, 256))).get_data()
+	if not valid:
+		push_error("Native staging save/reload differed from authored heightmap; active data untouched")
+		quit(1)
+		return
+	for location in terrain.data.get_region_locations():
+		terrain.data.set_region_modified(location, true)
+	terrain.data.save_directory(DATA)
+	print("COMPACT SAVED: 768 m, nine 256 m regions; range=", terrain.data.get_height_range(), " spawn=", terrain.data.get_height(Vector3(376, 0, 494)), " bounded overshoot edits=", limited)
 	world.queue_free()
 	await process_frame
 	quit()

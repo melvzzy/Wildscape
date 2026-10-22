@@ -51,10 +51,11 @@ if ($TerrainOnly) {
     if ($Graphical) {
         Invoke-GodotCheck 'startup-graphics' '--quit-after 120'
         if ($FocusedViews) {
-            Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd' 'ISLAND'
-            Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=task78-after --focused'
+            # Native physics/persistence assertions already ran headlessly.
+            # Six renders include a real main-menu Play and grounded FPS pose.
+            Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=after --focused'
         } else {
-            Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd -- --capture-island' 'ISLAND'
+            Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd' 'ISLAND'
             Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=after'
         }
     }
@@ -77,6 +78,7 @@ if ($Graphical) {
     Invoke-GodotCheck 'menu-flow-graphics' '--script res://tests/menu_flow_test.gd -- --capture-ui' 'FLOW'
     Invoke-GodotCheck 'inventory-ui-graphics' '--script res://tests/inventory_ui_test.gd -- --capture-ui' 'INVENTORY UI'
     Invoke-GodotCheck 'world-collection-graphics' '--script res://tests/world_collection_test.gd -- --capture-world' 'WORLD COLLECTION'
-    Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd -- --capture-island' 'ISLAND'
+    Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd' 'ISLAND'
+    Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=after'
 }
 Write-Output "ALL CHECKS PASSED: $script:checkTotal assertions; logs in $logRoot"

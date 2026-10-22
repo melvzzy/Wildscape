@@ -1,0 +1,48 @@
+[gd_resource type="Terrain3DAssets" format=3 uid="uid://f4ckbg21lwr4"]
+
+[ext_resource type="Texture2D" path="res://scenes/island/grass.res" id="1_hmtgk"]
+[ext_resource type="Texture2D" path="res://scenes/island/flat_normal.res" id="2_qukhl"]
+[ext_resource type="Texture2D" path="res://scenes/island/earth.res" id="3_pby43"]
+[ext_resource type="Texture2D" path="res://scenes/island/stone.res" id="4_pnds7"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hmtgk"]
+transparency = 4
+cull_mode = 2
+vertex_color_use_as_albedo = true
+backlight_enabled = true
+backlight = Color(0.5, 0.5, 0.5, 1)
+distance_fade_mode = 1
+distance_fade_min_distance = 128.0
+distance_fade_max_distance = 96.0
+
+[sub_resource type="Terrain3DMeshAsset" id="Terrain3DMeshAsset_qukhl"]
+generated_type = 1
+height_offset = 0.5
+material_override = SubResource("StandardMaterial3D_hmtgk")
+last_lod = 0
+last_shadow_lod = 0
+lod0_range = 128.0
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_o481l"]
+name = "Grass"
+albedo_texture = ExtResource("1_hmtgk")
+normal_texture = ExtResource("2_qukhl")
+uv_scale = 0.25
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_kma6x"]
+name = "Earth"
+id = 1
+albedo_texture = ExtResource("3_pby43")
+normal_texture = ExtResource("2_qukhl")
+uv_scale = 0.25
+
+[sub_resource type="Terrain3DTextureAsset" id="Terrain3DTextureAsset_60sdg"]
+name = "Stone"
+id = 2
+albedo_texture = ExtResource("4_pnds7")
+normal_texture = ExtResource("2_qukhl")
+uv_scale = 0.25
+
+[resource]
+mesh_list = Array[Terrain3DMeshAsset]([SubResource("Terrain3DMeshAsset_qukhl")])
+texture_list = Array[Terrain3DTextureAsset]([SubResource("Terrain3DTextureAsset_o481l"), SubResource("Terrain3DTextureAsset_kma6x"), SubResource("Terrain3DTextureAsset_60sdg")])

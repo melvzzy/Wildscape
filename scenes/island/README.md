@@ -1,210 +1,223 @@
-# Island foundation — Task 7.8
+# Compact island — Task 8.1 material and rendering foundation
 
-## Task 7.8: selective cohesion pass
+## Material / rendering pass
 
-The saved Task 7.7 region was edited directly, **without regenerating the island**.
-`backups/task_7_7/` contains its native data, scene, generator and documentation;
-the native SHA-256 is
-`7b94d6db69e2b98bbfd15b0606906dc723a1a2748c8ed3ceeaa55d6da55a6b68`.
+The 768 m layout, all nine heightmaps and color maps are byte-identical to
+Task 8.0. No geometry smoothing, new coast profile or regeneration was needed.
+The complete pre-pass data, scene, assets and textures are preserved in
+`backups/task_8_0/`; restore matching scene/assets/textures and all nine region
+files together if reverting the material pass. Do not restore the older
+single-region Task 7.8 data into the compact layout.
 
-Nine smoothly bounded elliptical transition areas receive modest corrections:
-the west/east lake-facing mountain feet, both southern mountain approaches,
-northwestern/northeastern upland shoulders, southwestern meadows, southern ridge
-transition and southeastern hills. A sparse Gaussian neighborhood reduces local
-curvature without imposing flat pads, terraces, repeated bumps or new noise.
-Corrections taper by distance and elevation. No island-wide smoothing is applied.
+Four native Terrain3D texture slots use existing stable indices Grass=0,
+Earth=1, Stone=2 and new Sand=3. Lightweight 128px tileable ImageTextures
+include mipmaps and restrained tonal variation; albedo alpha is neutral height
+0.5, normal alpha stores matte roughness 0.96. Flat normals have depth zero;
+material AO is explicitly zero because these placeholders contain no authored
+occlusion. UV scale remains 0.25. No custom shader or runtime generation.
 
-135,537 cells change by more than 0.1 mm (about 13% of the region); the largest
-adjustment is 0.876 m. Aggregate squared slope across edited cells falls from
-22,306.48 to 22,074.02, about 1%. This is a restrained transition correction,
-not a claim that steep mountains became building ground. Existing calm lowlands
-and clearings remain available for future assets; no placement system is added.
+The existing rock mask is feathered over several meters and supplemented only
+on steep ground. Earth supplies subdued intermediate ground, while sand follows
+low, gentle ocean/lake banks, fading out on steeper rocky shores. Native packed
+base/overlay weights remain editable with Terrain3D's paint tools. Existing
+hole/navigation/orientation/scale bits and all color-map variation are retained.
+Macro tint is deliberately mild. Terrain geometry is not altered to hide shading.
 
-All original heights at or below 8 m and at or above 58 m remain exactly unchanged.
-This protects the sea/lake waterlines, low beaches, lake island and high crests.
-Control and color maps are byte-identical. Lake dimensions, water planes, camera,
-spawn, lighting, materials, renderer and gameplay code are unchanged.
-Dry area remains 588,170 m²; area below 20° remains 331,700 m². The connected
-4 m route grid measures 488,672 m², versus 488,752 m² previously; this tiny sampling
-change does not remove any required landmark connection or physical walking route.
+Controlled same-camera comparisons showed the very dark west-facing patches
+persist with material AO disabled but largely disappear with a higher sun.
+They are primarily the direct-light terminator on steep, curved slopes with
+insufficient fill, not missing triangles or holes. Sun elevation is now 52°
+(previously 38°); azimuth and daytime colors are unchanged. Explicit ambient
+color at energy 0.5 with 0.25 sky contribution keeps unlit faces readable.
+Sun energy is reduced from 1.35 to 1.15 to avoid bleaching the new sand/stone.
+This reduces the defect without flattening the heightmap or disabling lighting.
 
-The existing `refine_island.gd` entry point is now a guarded native-data editor:
+The native shader still raises material weights to at least the eighth power
+with blend sharpness zero. Authored intermediate control weights compensate for
+this contrast; feathering the original rock mask alone was insufficient. Sand
+width varies with local grade, bank elevation and low-frequency variation,
+rather than painting a constant-width beach ring. No shader override is used.
+
+Native mesh size 128, smooth terrain normals, projection, camera far 1800 m,
+water planes, fog and Compatibility renderer are retained. A size-64 comparison
+did not justify reducing mesh density. One-meter sampling, the native shader's
+distance-dependent normal filtering and clipmap LOD still permit fine stepping
+and residual faceting on steep silhouettes; this is not claimed to be eliminated.
+
+`tools/refine_island_materials.gd -- --materials-v81` is an OFFLINE authoring
+record, guarded by exact pre-pass hashes. It stages/reloads all nine native
+maps and verifies unchanged height bytes before committing. It intentionally
+refuses the painted world or subsequent editor edits. Do not rerun to refresh
+textures or overwrite later painting; edit assets or paint in the editor.
+
+The focused island suite adds three material assertions (39 island + 11
+preflight checks): unchanged height/color bytes, valid four-slot blended masks,
+and consistent mipmapped matte texture packing. The previous three-texture
+expectation was updated for the explicitly requested fourth material.
+
+## Task 8.0 landscape foundation
+
+Godot 4.7.2 / Terrain3D 1.0.2 / Compatibility / GodotPhysics3D.
+F5 → Play opens `island.tscn`; F6 runs it directly. The original technical
+playground stays independently available at `res://scenes/main.tscn`.
+
+## Native layout
+
+The saved world is **768 × 768 m**, using **3 × 3 native 256 m regions** at
+**1 m vertex spacing**, locations `(0,0)` through `(2,2)`. Terrain3D exposes
+64/128/256/512/1024/2048 m region sizes; 768 is not a single-region size.
+Nine ordinary region resources achieve the preferred size without a terrain
+framework, streaming layer, scene-per-tile system or scaled terrain node.
+
+This reduces actual saved samples from 1,048,576 to 589,824 (43.75%). The nine
+native files total about 2.93 MB rather than 4.97 MB. There is one Terrain3D
+node and one active data directory. No obsolete 1024 m region remains active.
+Mesh size 128, island camera far plane 1800 m and the renderer are retained.
+Although the plugin inspector advertises a narrower mesh slider range, the
+installed native setter accepts and returns 128; this was checked directly.
+
+## Landscape adaptation
+
+The previous saved height/control/color maps supply the landscape. This is not
+an unrelated procedural island or a uniform image resize:
+
+- A monotone cubic coordinate mapping reserves relatively more room for the
+  central valley and lake, while compressing outer uplands more. Smooth tangents
+  avoid artificial slope breaks at mapping control points.
+- The two bent, branching mountain systems, northern gulf, western inlet,
+  eastern capes, southern peninsula, hills and quiet open areas remain recognizable.
+  Elevation compression varies with height; valley and lake levels remain stable.
+  Maximum terrain height is approximately 81.16 m rather than 112.11 m.
+- The lake remains a real native basin at water level 5 m. Its approximately
+  16,933 m² water area is prominent relative to the smaller island. A local
+  coordinate adjustment retains the islet's useful physical footprint: 778 m²
+  dry land, 232 m² below 10°, rather than uniformly shrinking it with the world.
+- Coast profiles retain broad sandy beaches and higher rocky headlands. Smooth
+  inherited headland weights replace discrete nearest-shore type changes that
+  caused thin height-normal streaks on some coastal slopes.
+- Only resampling overshoots on steep lower faces are bounded locally; 225 such
+  edits were needed. Peaks are not globally blurred. Encoded control-map bits
+  use nearest-pixel copying, never interpolation of packed floating-point bits.
+
+### Measured usable ground
+
+| Measure | Compact world |
+| --- | ---: |
+| Dry land | 337,549 m² |
+| Dry land below 20° | 183,768 m² |
+| Connected dry 4 m route grid below 32° | 275,056 m² |
+| Southern uplands above 20 m and below 20° | 31,431 m² |
+| Lake water | 16,933 m² |
+| Dry lake island | 778 m² |
+
+These are terrain measurements, not a building-placement guarantee. Natural
+clearings, coastal lowlands, valley ground and gently sloping uplands remain
+available for future assets. No vegetation, resources or placement systems are added.
+
+## Underwater terrain and boundaries
+
+The same native heightmaps continue below sea level. Fractional shoreline seeds
+and Euclidean-distance refinement form gradual submerged beaches and coastal
+shelves, steeper short approaches at rocky capes, then deeper seabed. Rock-type
+influence fades offshore; it cannot create abrupt Voronoi walls between bays.
+Subtle broad seabed relief fades in/out with depth-distance.
+
+The final map contains about 93,985 m² between −1 and −8 m and 62,872 m² below
+−15 m. Minimum elevation is approximately −36.15 m. Every outer sample along
+all four finite boundaries stays below −5 m. The ocean quad is only visual water,
+not extra terrain or an infinite underwater world; it hides submerged outer
+cutoffs from normal above-water play. There is no water collision, swimming,
+buoyancy or underwater gameplay.
+
+The lake plane is 210 × 190 m at `(414, 5, 352)`; all four edges remain buried
+under actual land. Player spawn is `(376, 9.6, 494)`, above terrain at ~9.277 m.
+R retains the existing spawn reset. Player, cameras, inventory, menus, materials
+and lighting are reused. World collision remains layer 1 / Player mask 2.
+
+## Editing, authoring and recovery
+
+Open `island.tscn`, select Terrain3D and sculpt/paint with the installed plugin.
+All nine regions are native and persistent. Keep the Terrain3D transform locked;
+do not move/scale regions individually to resize the world. Recheck routes and
+spawn after hand edits. No generation runs during normal gameplay.
+
+`backups/task_7_8/` preserves the complete previous island: its native data,
+scene, texture/assets, both tools, terrain tests, documentation and project-settings
+snapshot. Native baseline SHA-256:
+`d9591a794a001a8fba88b8c7e959699d61a9ab25b033cce14cc255f0b24961b1`.
+Archived scenes/scripts/text resources use `.txt`; binary texture backups use
+`.bak` to avoid registering duplicate asset/scene UIDs in the active project.
+
+To restore Task 7.8, close Godot, preserve later work, replace the **entire** active
+data directory with the backup's single-region data and restore the matching
+`island.tscn.txt` as `island.tscn`. Do not mix a 1024 m region with the compact
+256 m regions. Restore asset suffixes only if those assets also need recovery.
+The settings snapshot is reference material, not an instruction to overwrite
+unrelated later project changes.
+
+There is one active offline adaptation tool:
 
 ```powershell
-& '<Godot executable>' --headless --path . --script res://tools/refine_island.gd -- --polish-island-v8
+& '<Godot executable>' --headless --path . --script res://tools/build_island.gd -- --compact-island-v80
 ```
 
-It requires both active data and the Task 7.7 backup to match the recorded hash.
-It refuses repeat execution against the refined result or later hand sculpting.
-The full V7 generator is retained for historical restoration, but now refuses
-active data newer than Task 7.6. Normal gameplay never runs either authoring tool.
+It requires exactly one active, hash-matching Task 7.8 original region plus its
+verified backup. Output is first saved and reloaded in an ignored staging folder;
+every native height tile must equal its authored 256-square source before active
+data is replaced. Running it again against the compact world or later sculpting
+is rejected. Historical generators are archived; `refine_island.gd` rejects old
+1024 m refinement operations. No parallel terrain system or autoload is introduced.
 
-Focused verification uses:
+## Focused verification
 
 ```powershell
 ./tests/run_tests.ps1 -GodotPath '<Godot executable>' -TerrainOnly -Graphical -FocusedViews
 ```
 
-This retains import, terrain assertions, preflight, bounded startup and graphical
-checks, while replacing the full screenshot batch with six views: whole-island
-overhead, both mountain feet, southern transition and two grounded FPS poses.
-Existing collision/route/waterline/persistence limits remain unchanged. Additional
-assertions check bounded local edits, protected heights, unchanged paint maps and
-reduced slope energy. No inventory/gathering/equipment suites are repeated.
+Actual checks: **36 compact-island assertions plus 11 independent preflight
+assertions passed**, with import and bounded headless/menu/playground/graphical
+startup checks. Main-menu Play was exercised by the graphical survey. Native
+edit/save/reload checks retain all nine regions, including an edit beside a join.
 
-Actual result: **79 assertions passed** (34 headless island, 34 graphical island,
-11 preflight), plus import, bounded menu/playground startup and six focused
-renders. The first graphical attempt entered pause near the beach walk and then
-failed the dependent menu checks, consistent with external focus loss. Only that
-graphical run and the pending six-view survey were repeated; both then passed.
-The test logs future focus loss without suppressing native pause behavior.
-All six final images were reviewed in `.godot/island_survey/task78-after/`.
-The original 2.5 m adjacent-height and all route/physics tolerances remain intact.
+Coverage includes all four outer boundaries, lake-plane burial, native region
+sizes, join heights/curvature, underwater shelves, connected routes, fifteen
+physical collision samples (three at region joins and one at a rocky coast),
+two actual twelve-second walks, jumping, lake-islet walking and pause compatibility.
+Maximum adjacent height difference is 2.396 m (unchanged limit 2.5 m); maximum
+join second difference is 0.153 m. Collision tolerance stays 0.15 m, route grades
+32° and gentle-ground grades 20°.
 
-A fixed-camera rendering diagnosis compared original shading, disabled native
-texture projection and color-based ambient light. Neither alternative removes
-the dark steep-face patches; no diagnostic setting was saved. Existing normal
-texture values were also checked. The prior unshaded comparison and native
-height/collision checks distinguish these lighting-dependent surfaces from holes.
-The remaining strong shading contrast and 1 m/native LOD edges are not hidden by
-new materials, renderer changes or broad terrain smoothing.
+Area thresholds were converted for 768²/1024² and rounded upward: dry 310,000,
+gentle 175,000, connected 255,000 and southern elevated gentle land 17,000 m².
+Old Task 7.8 bounded-edit/unchanged-height tests do not describe a resized world;
+native layout, proportions, seabed and seam checks replace those obsolete claims.
+The eastern route landmark follows the actual comfortable approach ten meters
+inland; the steep headland itself has a separate collision sample. No physics,
+grade, jump or movement tolerances were relaxed.
 
-The following sections document the preserved Task 7.7 baseline.
+Six focused views cover the full island, both mountain feet, southern coast,
+exposed seabed and a grounded FPS lake-shore pose. Only changed overhead/seabed
+areas were recaptured after targeted profile corrections; no further tour or
+unrelated inventory/equipment/gathering suite was run. Images are ignored files:
+`.godot/island_survey/task80-after/` and final overhead/shelf images in
+`.godot/island_survey/task80-detail/`.
 
-Godot 4.7.2 / Terrain3D 1.0.2, Compatibility renderer, GodotPhysics3D.
-F5 → Play loads `island.tscn`; F6 runs it directly. The original playground
-remains `res://scenes/main.tscn`; terrain_preflight remains isolated.
+Godot AI/MCP confirmed Wildscape 4.7.2 editor access, 256 m / 1 m node settings
+and loading of the far `(2,2)` native region after reopening the editor. Normal
+editor brush/undo gestures are not exhaustively tested.
+The final bounded editor restart exited 0 without logged errors and left all
+nine native hashes unchanged. Repeating the adaptation against the compact world
+was rejected with the expected guard message and likewise changed no region.
 
-## Controlled landscape refinement
+## Rendering diagnosis and remaining limits
 
-One saved **1024 × 1024 m native region**, 1 m vertex spacing, location `(0, 0)`.
-Task 7.7 preserves Task 7.6's outer coastline, northern gulf, western inlet,
-mountain ridges, connected foothills, southern terraces and northeastern uplands.
-Changes are restricted to the central lake basin and selected coastal profiles.
-There is no global noise/smoothing pass or runtime generation.
+Confirmed coastal type-change streaks and eight-direction seabed contours were
+corrected in geometry, not hidden by materials. No holes/cracks were detected.
+Native mesh size, shadow-disabled, flat-normal, normal-map-depth and ambient-fill
+comparisons did not establish a reliable small fix for the remaining dark rock
+patches. Flat normals visibly increased faceting. These diagnostic changes were
+not saved; shading is not claimed fixed. Native distant LOD and 1 m shoreline
+sampling remain visible, particularly in close or high-contrast views.
 
-- **Lake:** approximately **183 × 177 m**, **22,244 m²** water, about 3.4 times
-  the old lake area. Its asymmetric basin combines a broad northern shore,
-  eastern basin, western indentation and narrower southern bay. The native
-  heightmap is excavated, rather than merely enlarging the water mesh.
-- **Islet:** near `(538, 488)`, approximately **38 × 24 m**, **778 m²** dry land,
-  **232 m² below 10°**. This is about 3.5% of the lake's water area. A low plateau
-  and asymmetric shoulder replace the old tiny dome; actual walking is tested.
-- **Lake banks:** the outside profile rises with distance and rejoins existing
-  terrain within 65 m. A smooth minimum avoids raising low valley ground or
-  cutting a broad flat shelf into mountain faces. Five principal crest heights
-  are compared against the Task 7.6 backup within 0.1 m.
-- **Beaches:** southern, southwestern and western-inlet profiles extend farther
-  inland. Narrower northern/eastern shores and rocky capes remain for contrast.
-  Read-only measurements of ground between 0–3 m in fixed coastal rectangles
-  grew from 3,134 to 4,230 m² (south), 2,897 to 3,407 m² (southwest), and 1,768
-  to 2,065 m² (western inlet). These are sampled low coastal areas, not a
-  calculation of total beach surface or material coverage.
-
-Sea level stays 0 m; lake level stays 5 m. The lake's containing plane is
-260 × 210 m, centered at `(535, 5, 480)`; every edge is buried beneath land.
-Simple grass/earth/stone assets, water material, sky, lighting and mesh size 128
-are unchanged. No vegetation, new assets, renderer changes or gameplay additions.
-
-## Measured land use
-
-| Measure | Task 7.6 | Task 7.7 |
-| --- | ---: | ---: |
-| Dry land | 603,932 m² | 588,170 m² |
-| Dry land below 20° | 341,581 m² | 331,700 m² |
-| Connected dry 4 m path grid below 32° | 509,040 m² | 488,752 m² |
-| Southern land above 20 m, below 20° (Z 700–900) | 63,219 m² | 62,442 m² |
-| Elevation range | −8 to 112.11 m | −8 to 112.11 m |
-
-The larger lake retains substantial usable valley and upland areas. The 4 m
-route grid is a conservative regression measure, not gameplay navigation or
-a guarantee that every slope is walkable. Mountain faces intentionally remain steep.
-
-## Loading, editing and backups
-
-`data/terrain3d_00_00.res` embeds persistent, editable height/control/color maps.
-Open `island.tscn`, select Terrain3D, sculpt/paint using the installed plugin and
-save native data. The terrain transform stays locked; edit heights instead of
-moving/scaling the node. Normal play loads data and never generates/saves it.
-
-Spawn stays `(500, 9.57, 650)`, above the terrain floor (~9.462 m). R resets spawn.
-Player, cameras, empty inventory, UI and MenuController are reused unchanged.
-The island-only camera far plane stays 1800 m. Native dynamic collision uses
-World layer 1 / Player mask 2 and follows the camera within its existing radius.
-
-`backups/task_7_6/` preserves the preceding native region byte-for-byte, matching
-scene, generator and documentation. Native SHA-256:
-`6e384434cfcb55b0d22e4443734e118380cfe48b434742de4323d8fa13a38f9d`.
-Earlier backups remain intact. Restore a matching scene with its native data.
-
-Historical Task 7.7 full-generation command (not used for Task 7.8):
-
-```powershell
-& '<Godot executable>' --headless --path . --script res://tools/build_island.gd -- --write-island-v7
-```
-
-This now requires both active Task 7.6 data and its hash-verified backup, protecting
-all later edits. For local Task 7.8 authoring use the guarded refinement described
-above. Neither tool is attached to the gameplay scene.
-
-## Focused verification
-
-```powershell
-./tests/run_tests.ps1 -GodotPath '<Godot executable>' -TerrainOnly -Graphical
-```
-
-Final Task 7.7 run: **79 assertions passed**: island 30 headless, 38 graphical,
-and separate terrain preflight 11. Import, bounded headless menu/playground and
-graphical menu startup exited 0 without logged errors. The native interpolation
-deprecation warning remains; it is not a terrain failure.
-
-Coverage includes native loading, eleven collision locations, actual valley and
-coastal walking/jumping, walking over 5 m on the islet, pause integration, and
-scratch-copy edit/save/reload without modifying active native data. Whole-map
-checks retain the original area/grade/height-step limits: no painted holes,
-maximum adjacent step **2.385 m** (limit 2.5 m), submerged boundaries, graded
-sea/lake waterlines and buried lake-plane edges. New checks cover lake area,
-islet proportions/flat ground and preservation of five original ridge landmarks.
-
-Old lake-bank waypoints now lie inside the expanded basin and were moved to its
-actual banks. The northwestern approach shifts 48 m north; its original native
-collision sample remains at `(448, 392)`. No grade, collision, area or movement
-tolerances were relaxed. Earlier iterations exposed steep approaches and a
-clipped blend boundary; these were corrected before final verification. A later
-visual pass replaced an artificial flat mountain-side excavation with rising banks. The final outline retreats from the western mountain foot and extends into the lower northern valley.
-
-## Visual inspection
-
-`tests/island_visual_survey.gd` captures native Godot renders without saving data:
-complete overhead, four cardinal obliques, nine overlapping regional overheads,
-both foothills, northern upland, southern plain, four lake shores, eight coastal
-sectors and six actual grounded FPS player poses, including lake shore and islet.
-
-Ignored output under `.godot/island_survey/`:
-
-- `task77-before/`: Task 7.6 views copied before authoring.
-- `task77-after/`: final 36 views and contact sheets.
-- `task77-comparison.png`: matched top-down before/after views.
-- `after/`: latest reusable test-runner survey output.
-
-MCP verified editor access to Wildscape 4.7.2, native resource loading and the
-actual main-menu Play transition, grounded spawn and a live lake-shore FPS view.
-No project/plugin configuration was changed for inspection.
-
-A live MCP comparison with the same camera and temporarily unshaded rendering
-confirmed that the dark western rock patch is lighting-dependent, not a terrain
-hole. Debug drawing was restored immediately; no material or lighting changes
-were saved. Diagnostic captures: `.godot/task77-west-lit.png` and
-`.godot/task77-west-unshaded.png`.
-
-## Remaining limitations
-
-Water is visual-only: no swimming, drowning, boats or boundary system. Close
-waterlines reveal 1 m sampling; distant native LOD simplifies terrain. The simple
-solid-color materials remain intentionally unfinished. Extended manual traversal
-of every route and editor brush/undo gestures are not exhaustively tested.
-Some steep rock faces retain conspicuously dark shading in the existing renderer
-and lighting; this visual limitation is preserved rather than disguised as a
-heightmap repair.
-No unrelated inventory/equipment/gathering suites were repeated for terrain-only
-changes. No commits, pushes or merges were created.
+The native interpolation deprecation warning remains. No renderer/plugin changes,
+new art assets, runtime generation, gameplay systems, commits, pushes or merges.

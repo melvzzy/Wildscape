@@ -1,6 +1,6 @@
 extends SceneTree
 ## Inspection captures only: visual quality is reviewed, not asserted by pixels.
-## -- --survey=before (or after). Never writes terrain or scene resources.
+## Six focused compact-island views. Never writes terrain or scene resources.
 
 var world: Node3D
 var terrain: Terrain3D
@@ -84,14 +84,23 @@ func _run() -> void:
 		quit(1)
 		return
 	DirAccess.make_dir_recursive_absolute(directory)
-	world = (load("res://scenes/island/island.tscn") as PackedScene).instantiate()
-	root.add_child(world)
-	current_scene = world
+	var main_menu := (load("res://scenes/menus/main_menu.tscn") as PackedScene).instantiate()
+	root.add_child(main_menu)
+	current_scene = main_menu
+	main_menu.get_node("Menu")._on_primary_pressed()
+	await scene_changed
+	world = current_scene
+	if world.scene_file_path != "res://scenes/island/island.tscn":
+		push_error("Main menu Play did not load the island")
+		quit(1)
+		return
+	print("PLAY TRANSITION: main menu -> ", world.scene_file_path)
 	terrain = world.get_node("Terrain3D")
 	world.get_node("Menu").visible = false
 	# Capture-only camera must keep native LOD updates running if the hidden
 	# test window loses focus. Normal gameplay focus/pause behavior is unchanged.
 	world.get_node("Menu").gameplay_mode = false
+	paused = false
 	world.get_node("Player").process_mode = Node.PROCESS_MODE_DISABLED
 	world.get_node("Player").visible = false
 	camera = Camera3D.new()
@@ -108,51 +117,16 @@ func _run() -> void:
 	caption.add_theme_font_size_override("font_size", 28)
 	caption.add_theme_color_override("font_outline_color", Color.BLACK)
 	caption.add_theme_constant_override("outline_size", 8)
-	if "--focused" in OS.get_cmdline_user_args():
-		await _capture("00_entire_island", Vector3(512, 1100, 512), Vector3(512, 0, 512), 960)
-		await _capture("west_foothills", Vector3(470, 115, 555), Vector3(310, 38, 360))
-		await _capture("east_foothills", Vector3(550, 115, 650), Vector3(720, 35, 500))
-		await _capture("south_transition", Vector3(450, 85, 880), Vector3(340, 24, 715))
-		await _player_view("player_lake_shore", Vector2(500, 574), Vector3(538, 5, 488))
-		await _player_view("player_northeast", Vector2(650, 260), Vector3(710, 40, 400))
-		print("ISLAND SURVEY: %d focused rendered views saved to %s" % [captures, directory])
-		world.queue_free()
-		layer.queue_free()
-		await process_frame
-		quit()
-		return
-	await _capture("00_entire_island", Vector3(512, 1100, 512), Vector3(512, 0, 512), 960)
-	await _capture("01_north", Vector3(500, 460, -270), Vector3(500, 18, 490))
-	await _capture("02_east", Vector3(1270, 460, 500), Vector3(500, 18, 490))
-	await _capture("03_south", Vector3(500, 460, 1280), Vector3(500, 18, 490))
-	await _capture("04_west", Vector3(-270, 460, 500), Vector3(500, 18, 490))
-	for z in 3:
-		for x in 3:
-			var center := Vector3(220 + x * 280, 380, 220 + z * 280)
-			await _capture("region_%d_%d" % [x, z], center, Vector3(center.x, 0, center.z), 350)
-	await _capture("west_foothills", Vector3(470, 115, 555), Vector3(310, 38, 360))
-	await _capture("east_foothills", Vector3(550, 115, 650), Vector3(720, 35, 500))
-	await _capture("north_upland", Vector3(540, 70, 410), Vector3(530, 16, 220))
-	await _capture("south_plains", Vector3(420, 50, 790), Vector3(560, 10, 670))
-	await _ground("lake_west", Vector2(444, 480), Vector3(538, 5, 488))
-	await _ground("lake_east", Vector2(655, 480), Vector3(538, 5, 488))
-	await _ground("lake_north", Vector2(535, 375), Vector3(538, 5, 488))
-	await _ground("lake_south", Vector2(535, 580), Vector3(538, 5, 488))
-	await _ground("coast_north", Vector2(450, 140), Vector3(450, 0, 70))
-	await _ground("coast_northeast", Vector2(870, 250), Vector3(950, 0, 250))
-	await _ground("coast_east", Vector2(916, 480), Vector3(1000, 0, 480))
-	await _ground("coast_southeast", Vector2(860, 850), Vector3(950, 0, 900))
-	await _ground("coast_south", Vector2(500, 930), Vector3(500, 0, 1000))
-	await _ground("coast_southwest", Vector2(200, 845), Vector3(100, 0, 900))
-	await _ground("coast_west", Vector2(220, 520), Vector3(120, 0, 520))
-	await _ground("coast_northwest", Vector2(100, 300), Vector3(0, 0, 260))
-	await _player_view("player_southwest", Vector2(330, 795), Vector3(280, 35, 650))
-	await _player_view("player_southeast", Vector2(745, 800), Vector3(700, 40, 640))
-	await _player_view("player_northeast", Vector2(650, 260), Vector3(710, 40, 400))
-	await _player_view("player_west_bay", Vector2(235, 535), Vector3(160, 6, 480))
-	await _player_view("player_lake_shore", Vector2(500, 574), Vector3(538, 5, 488))
-	await _player_view("player_lake_islet", Vector2(538, 488), Vector3(600, 7, 490))
-	print("ISLAND SURVEY: %d rendered views saved to %s" % [captures, directory])
+	await _capture("00_entire_island", Vector3(384, 850, 384), Vector3(384, 0, 384), 800)
+	await _capture("west_foothills", Vector3(340, 88, 420), Vector3(220, 28, 275))
+	await _capture("east_foothills", Vector3(415, 88, 495), Vector3(548, 26, 386))
+	await _capture("south_coast", Vector3(410, 65, 755), Vector3(365, 2, 675))
+	# Inspection only: reveal the real seabed once, then restore visual water.
+	world.get_node("Sea").visible = false
+	await _capture("coastal_shelf", Vector3(385, 60, 765), Vector3(375, -10, 705))
+	world.get_node("Sea").visible = true
+	await _player_view("player_lake_shore", Vector2(380, 438), Vector3(407, 5, 361))
+	print("ISLAND SURVEY: %d focused compact-island views saved to %s" % [captures, directory])
 	world.queue_free()
 	layer.queue_free()
 	await process_frame
