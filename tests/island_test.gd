@@ -41,7 +41,7 @@ func _capture(name: String) -> void:
 
 
 func _water_level(x: int, z: int) -> float:
-	return 5.0 if x >= 455 and x <= 615 and z >= 450 and z <= 600 else 0.0
+	return 5.0 if x >= 405 and x <= 665 and z >= 375 and z <= 585 else 0.0
 
 
 func _slope(image: Image, x: int, z: int) -> float:
@@ -58,6 +58,7 @@ func _check_landscape(terrain: Terrain3D) -> void:
 	var sea_samples := 0
 	var graded_shore := 0
 	var no_holes := true
+	var southern_elevated_gentle := 0
 	for z in range(1, 1023):
 		for x in range(1, 1023):
 			var h := height.get_pixel(x, z).r
@@ -73,15 +74,23 @@ func _check_landscape(terrain: Terrain3D) -> void:
 				dry += 1
 				if _slope(height, x, z) < tan(deg_to_rad(20)):
 					gentle += 1
+					if z >= 700 and z <= 900 and h > 20:
+						southern_elevated_gentle += 1
 	_check(height.get_size() == Vector2i(1024, 1024) and finite, "saved 1024-square heightmap has no invalid heights")
-	_check(dry > 400000 and gentle > 250000, "over 400000 square meters dry and 250000 below 20 degrees")
+	_check(dry > 550000 and gentle > 300000, "over 550000 square meters dry and 300000 below 20 degrees")
+	_check(southern_elevated_gentle > 30000, "southern terraces and hills contain over 30000 square meters of gentle elevated usable land")
+	print("SOUTHERN ELEVATED GENTLE: ", southern_elevated_gentle, " m2")
 	_check(no_holes and max_step < 2.5, "entire region has no painted holes or isolated height jumps above 2.5 m per cell")
+	var boundaries_submerged := true
+	for edge in 1024:
+		boundaries_submerged = boundaries_submerged and height.get_pixel(edge, 0).r < -5 and height.get_pixel(edge, 1023).r < -5 and height.get_pixel(0, edge).r < -5 and height.get_pixel(1023, edge).r < -5
+	_check(boundaries_submerged, "all four native region boundaries retain submerged ocean margins")
 	_check(sea_samples > 1000 and graded_shore > sea_samples * 0.99, "sea-level shoreline has a positive grade instead of near-coplanar water strips")
 	var lake_edges_buried := true
-	for x in range(455, 616):
-		lake_edges_buried = lake_edges_buried and height.get_pixel(x, 450).r > 5.25 and height.get_pixel(x, 600).r > 5.25
-	for z in range(450, 601):
-		lake_edges_buried = lake_edges_buried and height.get_pixel(455, z).r > 5.25 and height.get_pixel(615, z).r > 5.25
+	for x in range(405, 666):
+		lake_edges_buried = lake_edges_buried and height.get_pixel(x, 375).r > 5.25 and height.get_pixel(x, 585).r > 5.25
+	for z in range(375, 586):
+		lake_edges_buried = lake_edges_buried and height.get_pixel(405, z).r > 5.25 and height.get_pixel(665, z).r > 5.25
 	_check(lake_edges_buried, "all four lake-plane edges remain buried beneath the native shore")
 	print("GEOMETRY QUALITY: max adjacent step=", max_step, " m, graded sea samples=", graded_shore, "/", sea_samples)
 	# A conservative 4 m path grid tests continuous dry routes with <=32 degree
@@ -110,11 +119,13 @@ func _check_landscape(terrain: Terrain3D) -> void:
 				visited[index] = 1
 				queue.append(index)
 	var connected := true
-	for point in [Vector2i(500, 700), Vector2i(456, 520), Vector2i(536, 444), Vector2i(448, 392), Vector2i(560, 340), Vector2i(600, 640), Vector2i(500, 852), Vector2i(148, 500), Vector2i(832, 480), Vector2i(452, 104)]:
+	# Banks follow the enlarged basin. The northwestern approach shifts 48 m
+	# uphill from the old bank; its collision sample below stays at (448, 392).
+	for point in [Vector2i(500, 700), Vector2i(444, 480), Vector2i(536, 368), Vector2i(448, 344), Vector2i(652, 480), Vector2i(540, 588), Vector2i(560, 340), Vector2i(600, 640), Vector2i(500, 932), Vector2i(220, 520), Vector2i(916, 480), Vector2i(452, 104), Vector2i(320, 850), Vector2i(770, 830), Vector2i(650, 260)]:
 		if visited[(point.y / 4) * 256 + point.x / 4] != 1:
 			print("UNREACHABLE LANDMARK: ", point, " height=", height.get_pixelv(point).r, " slope=", rad_to_deg(atan(_slope(height, point.x, point.y))))
 		connected = connected and visited[(point.y / 4) * 256 + point.x / 4] == 1
-	_check(connected and queue.size() * 16 > 280000, "spawn valley lake banks both mountain approaches and four coasts share comfortable dry routes")
+	_check(connected and queue.size() * 16 > 450000, "spawn valley lake banks both mountain approaches southern uplands and four coasts share comfortable dry routes")
 	print("MEASURED ISLAND: dry=%d m2, under20deg=%d m2, connected32deg_grid=%d m2, heights=%s" % [dry, gentle, queue.size() * 16, terrain.data.get_height_range()])
 
 
@@ -133,7 +144,7 @@ func _run() -> void:
 	_check(player.inventory.get_capacity() == 36 and player.inventory.get_stack(0) == null, "existing empty player inventory retained")
 	_check_landscape(terrain)
 	var collision_matches := true
-	for point in [Vector3(500, 0, 650), Vector3(448, 0, 392), Vector3(304, 0, 326), Vector3(705, 0, 480), Vector3(500, 0, 700), Vector3(456, 0, 520), Vector3(500, 0, 852), Vector3(538, 0, 524), Vector3(452, 0, 104), Vector3(730, 0, 280), Vector3(265, 0, 780)]:
+	for point in [Vector3(500, 0, 650), Vector3(448, 0, 392), Vector3(304, 0, 326), Vector3(705, 0, 480), Vector3(500, 0, 700), Vector3(420, 0, 500), Vector3(500, 0, 932), Vector3(538, 0, 488), Vector3(452, 0, 104), Vector3(730, 0, 280), Vector3(265, 0, 780)]:
 		# Native dynamic collision follows the active camera; test each position
 		# inside its generated radius instead of assuming a world-wide collider.
 		player.position = point + Vector3.UP * (terrain.data.get_height(point) + 2.0)
@@ -146,8 +157,52 @@ func _run() -> void:
 	await _frames(40)
 	_check(collision_matches, "native collision matches spawn valley both massifs lake shore islet and beach")
 	_check(terrain.data.get_height(Vector3(304, 0, 326)) > 65 and terrain.data.get_height(Vector3(705, 0, 480)) > 45 and terrain.data.get_height(Vector3(500, 0, 700)) < 15, "two distinctive massifs flank broad lower land")
+	var baseline: Terrain3DRegion = load("res://scenes/island/backups/task_7_6/terrain3d_00_00.res")
+	var baseline_heights: Image = baseline.get_height_map()
+	var crests_preserved := true
+	for crest in [Vector2i(304, 326), Vector2i(342, 382), Vector2i(316, 442), Vector2i(705, 480), Vector2i(708, 586)]:
+		crests_preserved = crests_preserved and absf(terrain.data.get_height(Vector3(crest.x, 0, crest.y)) - baseline_heights.get_pixelv(crest).r) < 0.1
+	_check(crests_preserved, "five main ridge landmarks retain Task 7.6 heights within ten centimeters")
 	_check(terrain.data.get_height(Vector3(10, 0, 10)) < -5 and terrain.data.get_height(Vector3(1010, 0, 1010)) < -5, "terrain borders submerged below sea")
-	_check(terrain.data.get_height(Vector3(514, 0, 516)) < 5 and terrain.data.get_height(Vector3(538, 0, 524)) > 5 and world.get_node("Lake").position.y == 5, "off-center lake has submerged bed and dry central islet")
+	_check(terrain.data.get_height(Vector3(510, 0, 450)) < 5 and terrain.data.get_height(Vector3(538, 0, 488)) > 5 and world.get_node("Lake").position.y == 5, "off-center lake has submerged bed and dry central islet")
+	var lake_area := 0
+	var islet_area := 0
+	var islet_flat := 0
+	var lake_bounds := Rect2i(1024, 1024, 0, 0)
+	var islet_bounds := Rect2i(1024, 1024, 0, 0)
+	var lake_shore_samples := 0
+	var lake_shore_graded := 0
+	var heights: Image = terrain.data.get_region(Vector2i.ZERO).get_height_map()
+	for z in range(375, 586):
+		for x in range(405, 666):
+			if heights.get_pixel(x, z).r < 5:
+				lake_area += 1
+				lake_bounds = lake_bounds.expand(Vector2i(x, z)) if lake_area > 1 else Rect2i(x, z, 0, 0)
+			elif x > 510 and x < 570 and z > 460 and z < 515:
+				islet_area += 1
+				islet_bounds = islet_bounds.expand(Vector2i(x, z)) if islet_area > 1 else Rect2i(x, z, 0, 0)
+				if _slope(heights, x, z) < tan(deg_to_rad(10)):
+					islet_flat += 1
+			if absf(heights.get_pixel(x, z).r - 5) < 0.15:
+				lake_shore_samples += 1
+				if _slope(heights, x, z) > 0.05:
+					lake_shore_graded += 1
+	_check(lake_area > 20000 and lake_area < 35000, "prominent expanded lake retains over 20000 square meters of water")
+	_check(islet_area > 500 and islet_area < lake_area * 0.06 and islet_flat > 120, "small useful islet has dry walking space and over 120 square meters below 10 degrees")
+	_check(lake_shore_samples > 500 and lake_shore_graded > lake_shore_samples * 0.99, "lake and islet waterlines retain a positive grade without coplanar strips")
+	print("LAKE GEOMETRY: water=", lake_area, " m2 bounds=", lake_bounds, "; islet=", islet_area, " m2 bounds=", islet_bounds, "; flat islet=", islet_flat, " m2")
+	player.position = Vector3(538, terrain.data.get_height(Vector3(538, 0, 488)) + 0.1, 488)
+	player.velocity = Vector3.ZERO
+	player.set_mouse_captured(true)
+	await _frames(20)
+	var islet_start := player.position
+	Input.action_press("move_right")
+	await _frames(90)
+	Input.action_release("move_right")
+	await _frames(15)
+	_check(player.is_on_floor() and player.position.y > 5 and player.position.x - islet_start.x > 5, "actual player walks over five meters on dry lake islet")
+	player.reset_to_spawn()
+	await _frames(25)
 	var start := player.position
 	player.set_mouse_captured(true)
 	Input.action_press("move_forward")
@@ -161,7 +216,7 @@ func _run() -> void:
 	await _frames(95)
 	_check(player.is_on_floor(), "jump lands on island terrain")
 	# Start the physical beach walk on the southern coastal approach.
-	var approach := Vector3(500, 0, 800)
+	var approach := Vector3(500, 0, 880)
 	player.position = approach + Vector3.UP * (terrain.data.get_height(approach) + 0.1)
 	player.velocity = Vector3.ZERO
 	await _frames(25)
@@ -169,7 +224,7 @@ func _run() -> void:
 	await _frames(720)
 	Input.action_release("move_back")
 	await _frames(20)
-	_check(player.position.z > 852 and player.is_on_floor() and player.position.y > 0, "actual player reaches southern beach over a gentle coastal route")
+	_check(player.position.z > 932 and player.is_on_floor() and player.position.y > 0 and player.position.y < 5, "actual player reaches southern beach over a gentle coastal route")
 	menu.set_inventory_open(true)
 	menu.set_character_open(true)
 	var frozen := player.position
@@ -218,11 +273,11 @@ func _run() -> void:
 		camera.position = Vector3(1250, 430, 520)
 		camera.look_at(Vector3(500, 25, 490))
 		await _capture("east")
-		camera.position = Vector3(469, terrain.data.get_height(Vector3(469, 0, 563)) + 1.7, 563)
-		camera.look_at(Vector3(538, 5, 524))
+		camera.position = Vector3(500, terrain.data.get_height(Vector3(500, 0, 574)) + 1.7, 574)
+		camera.look_at(Vector3(538, 5, 488))
 		await _capture("lake")
-		camera.position = Vector3(500, terrain.data.get_height(Vector3(500, 0, 852)) + 1.7, 852)
-		camera.look_at(Vector3(510, 0, 940))
+		camera.position = Vector3(500, terrain.data.get_height(Vector3(500, 0, 932)) + 1.7, 932)
+		camera.look_at(Vector3(510, 0, 1000))
 		await _capture("beach")
 	world.queue_free()
 	await process_frame

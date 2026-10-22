@@ -2,14 +2,14 @@ extends SceneTree
 ## OFFLINE authoring only. Replaces later sculpting; normal play loads saved data.
 
 const DIRECTORY := "res://scenes/island"
-const BACKUP := DIRECTORY + "/backups/task_7_4/terrain3d_00_00.res"
-const BACKUP_SHA256 := "d3bdc823b65eab7de7fbecc5785a03e6a7d83ed5bff82f117f1688418622c99e"
+const BACKUP := DIRECTORY + "/backups/task_7_6/terrain3d_00_00.res"
+const BACKUP_SHA256 := "6e384434cfcb55b0d22e4443734e118380cfe48b434742de4323d8fa13a38f9d"
 const SIZE := 1024
 const FIELD_SIZE := 513
-# Authored coastline, in meters: western coves, northern fingers, eastern
-# headlands and broad southern beaches. Not a noisy radial circle.
-const COAST := [Vector2(200, 100), Vector2(290, 82), Vector2(352, 130), Vector2(415, 70), Vector2(495, 90), Vector2(550, 152), Vector2(645, 120), Vector2(710, 165), Vector2(712, 238), Vector2(800, 255), Vector2(838, 325), Vector2(775, 385), Vector2(850, 445), Vector2(870, 520), Vector2(815, 582), Vector2(888, 650), Vector2(850, 728), Vector2(775, 745), Vector2(748, 820), Vector2(655, 860), Vector2(594, 825), Vector2(525, 883), Vector2(440, 865), Vector2(395, 810), Vector2(315, 840), Vector2(245, 785), Vector2(220, 715), Vector2(150, 705), Vector2(130, 640), Vector2(190, 578), Vector2(110, 520), Vector2(125, 435), Vector2(205, 393), Vector2(150, 320), Vector2(187, 250), Vector2(155, 185)]
-const LAKE := [Vector2(490, 500), Vector2(510, 480), Vector2(543, 485), Vector2(561, 475), Vector2(580, 492), Vector2(574, 515), Vector2(587, 537), Vector2(560, 555), Vector2(535, 550), Vector2(510, 571), Vector2(485, 552), Vector2(497, 531), Vector2(478, 518)]
+# Uneven landmark spacing: deep northern gulf, sheltered western inlet,
+# long eastern coast and broad southern peninsula. No alternating scallops.
+const COAST := [Vector2(145, 135), Vector2(265, 62), Vector2(420, 72), Vector2(495, 112), Vector2(515, 205), Vector2(575, 225), Vector2(665, 145), Vector2(760, 125), Vector2(860, 175), Vector2(900, 295), Vector2(875, 390), Vector2(940, 500), Vector2(915, 610), Vector2(865, 690), Vector2(900, 800), Vector2(835, 915), Vector2(695, 940), Vector2(565, 905), Vector2(490, 945), Vector2(335, 920), Vector2(200, 865), Vector2(140, 770), Vector2(110, 660), Vector2(185, 580), Vector2(210, 525), Vector2(165, 490), Vector2(68, 435), Vector2(72, 300), Vector2(115, 230)]
+const LAKE := [Vector2(456, 468), Vector2(466, 405), Vector2(489, 385), Vector2(546, 390), Vector2(585, 410), Vector2(630, 440), Vector2(637, 485), Vector2(608, 510), Vector2(575, 520), Vector2(550, 552), Vector2(514, 562), Vector2(478, 540), Vector2(478, 507), Vector2(457, 493)]
 # (X, elevation above lowland, Z). Uneven crests and branching spurs.
 const WEST := [Vector3(320, 0, 180), Vector3(350, 58, 250), Vector3(304, 84, 326), Vector3(342, 69, 382), Vector3(316, 65, 442), Vector3(352, 40, 510), Vector3(330, 0, 585)]
 const WEST_OUTER := [Vector3(304, 73, 326), Vector3(255, 41, 366), Vector3(222, 19, 425), Vector3(240, 0, 475)]
@@ -26,8 +26,8 @@ var lake_distances := PackedFloat32Array()
 
 
 func _initialize() -> void:
-	if not "--write-island-v5" in OS.get_cmdline_user_args() or FileAccess.get_sha256(BACKUP) != BACKUP_SHA256:
-		push_error("Rebuild requires -- --write-island-v5 and the unchanged Task 7.4 native backup. Later sculpting WILL be replaced.")
+	if not "--write-island-v7" in OS.get_cmdline_user_args() or FileAccess.get_sha256(BACKUP) != BACKUP_SHA256:
+		push_error("Rebuild requires -- --write-island-v7 and the unchanged Task 7.6 native backup. Later sculpting WILL be replaced.")
 		quit(1)
 		return
 	_build.call_deferred()
@@ -94,7 +94,9 @@ func _ridge(p: Vector2, points: Array, width: float) -> float:
 		# extended across the northern rim and mountain shoulders. Zero endpoint
 		# derivatives remove those planes without blurring the whole heightmap.
 		var elevation := lerpf(a.y, b.y, smoothstep(0, 1, t))
-		var q := clampf(distance / width, 0, 1)
+		# Round just the exposed crest's central few meters, retaining definition.
+		var rounded_distance := sqrt(distance * distance + 36.0) - 6.0
+		var q := clampf(rounded_distance / width, 0, 1)
 		# The low northern rim and foothills need rounded tops; only the high
 		# mountain crests retain the sharper cross-section of an exposed ridge.
 		var profile := lerpf(1.0 - smoothstep(0, 1, q), pow(1 - q, 2.1), smoothstep(25, 50, elevation))
@@ -106,11 +108,15 @@ func _hill(p: Vector2, center: Vector2, radii: Vector2, height: float) -> float:
 	return height * exp(-((p - center) / radii).length_squared() * 1.8)
 
 
+func _plateau(p: Vector2, center: Vector2, radii: Vector2, height: float) -> float:
+	return height * (1.0 - smoothstep(0.3, 1.35, ((p - center) / radii).length()))
+
+
 func _rocky_coast(p: Vector2) -> float:
-	var weight := maxf(_hill(p, Vector2(805, 265), Vector2(52, 60), 1), _hill(p, Vector2(155, 320), Vector2(42, 55), 1))
-	weight = maxf(weight, _hill(p, Vector2(874, 651), Vector2(42, 62), 1))
-	weight = maxf(weight, _hill(p, Vector2(280, 90), Vector2(72, 48), 1))
-	return maxf(weight, _hill(p, Vector2(850, 500), Vector2(50, 100), 1))
+	var weight := maxf(_hill(p, Vector2(885, 285), Vector2(65, 100), 1), _hill(p, Vector2(72, 380), Vector2(42, 100), 1))
+	weight = maxf(weight, _hill(p, Vector2(890, 795), Vector2(50, 65), 1))
+	weight = maxf(weight, _hill(p, Vector2(280, 65), Vector2(95, 48), 1))
+	return maxf(weight, _hill(p, Vector2(940, 500), Vector2(55, 105), 1))
 
 
 func _height(x: int, z: int) -> float:
@@ -120,9 +126,9 @@ func _height(x: int, z: int) -> float:
 		return -8.0
 	# Authored coastal sectors give narrow northern/eastern beaches and broad
 	# western/southern bays, rather than a uniform sandy ribbon around the map.
-	var beach_width := 27.0 + _hill(p, Vector2(265, 780), Vector2(160, 130), 35)
-	beach_width += _hill(p, Vector2(130, 500), Vector2(100, 160), 30)
-	beach_width += _hill(p, Vector2(510, 868), Vector2(150, 60), 38)
+	var beach_width := 27.0 + _hill(p, Vector2(200, 830), Vector2(140, 100), 58)
+	beach_width += _hill(p, Vector2(210, 525), Vector2(70, 115), 55)
+	beach_width += _hill(p, Vector2(510, 940), Vector2(150, 75), 70)
 	var cliff := _rocky_coast(p)
 	beach_width = lerpf(beach_width, 13, cliff)
 	# A nonzero shoreline grade prevents near-coplanar sea/terrain strips from
@@ -144,34 +150,46 @@ func _height(x: int, z: int) -> float:
 	var east_gully := _ridge(p, [Vector3(730, 0, 440), Vector3(687, 7, 520), Vector3(665, 5, 570), Vector3(650, 0, 630)], 25)
 	east_gully = maxf(east_gully, _ridge(p, [Vector3(750, 0, 480), Vector3(789, 6, 518), Vector3(800, 0, 572)], 22))
 	mountains -= maxf(west_gully, east_gully) * smoothstep(3, 20, mountains)
-	var hills := _hill(p, Vector2(302, 657), Vector2(100, 115), 11)
-	hills += _hill(p, Vector2(720, 747), Vector2(90, 70), 7)
-	hills += _hill(p, Vector2(575, 325), Vector2(110, 75), 7)
-	hills += _hill(p, Vector2(416, 650), Vector2(52, 90), 4)
-	hills += _hill(p, Vector2(450, 600), Vector2(65, 90), 9)
-	hills += _hill(p, Vector2(625, 670), Vector2(90, 58), 14)
-	hills += _hill(p, Vector2(610, 770), Vector2(65, 75), 8)
-	hills += _hill(p, Vector2(460, 385), Vector2(80, 65), 7)
-	hills += _hill(p, Vector2(230, 560), Vector2(75, 50), 13)
-	hills += _hill(p, Vector2(730, 300), Vector2(65, 95), 17)
-	# Northern upland, western fan, southern terraces and eastern side valley.
-	hills += _hill(p, Vector2(625, 230), Vector2(125, 80), 8)
-	hills += _hill(p, Vector2(440, 155), Vector2(95, 60), 4)
-	hills += _hill(p, Vector2(355, 560), Vector2(90, 95), 7)
-	hills += _hill(p, Vector2(675, 665), Vector2(115, 85), 6)
-	hills += _hill(p, Vector2(455, 772), Vector2(135, 50), 3)
-	hills -= _hill(p, Vector2(340, 725), Vector2(100, 65), 3.2)
-	hills -= _hill(p, Vector2(719, 705), Vector2(70, 48), 4.0)
-	hills -= _hill(p, Vector2(550, 365), Vector2(45, 90), 2.5)
-	var h := base + (mountains + _ridge(p, NORTH, 130) + hills) * inland
-	if x > 400 and x < 660 and z > 400 and z < 650:
+	# Connected basal uplands carry the massifs into the rest of the island.
+	var uplands := _hill(p, Vector2(285, 330), Vector2(190, 245), 18)
+	uplands += _hill(p, Vector2(760, 465), Vector2(175, 220), 16)
+	uplands += _ridge(p, [Vector3(340, 24, 485), Vector3(350, 19, 585), Vector3(300, 11, 660), Vector3(240, 0, 710)], 165)
+	uplands += _ridge(p, [Vector3(730, 25, 610), Vector3(705, 23, 700), Vector3(660, 11, 775), Vector3(625, 0, 830)], 155)
+	# Deliberately different medium-scale landscapes, rather than isolated bumps.
+	var hills := _plateau(p, Vector2(285, 745), Vector2(145, 110), 15)
+	hills += _ridge(p, [Vector3(245, 0, 810), Vector3(355, 23, 835), Vector3(430, 16, 805), Vector3(485, 0, 815)], 125)
+	hills += _ridge(p, [Vector3(875, 0, 750), Vector3(805, 27, 810), Vector3(705, 19, 863), Vector3(640, 0, 890)], 125)
+	hills += _plateau(p, Vector2(810, 280), Vector2(95, 125), 13)
+	hills += _plateau(p, Vector2(645, 255), Vector2(95, 85), 12)
+	hills += _hill(p, Vector2(195, 180), Vector2(95, 90), 10)
+	hills += _hill(p, Vector2(690, 570), Vector2(115, 85), 10)
+	hills += _hill(p, Vector2(435, 600), Vector2(95, 95), 8)
+	hills -= _ridge(p, [Vector3(235, 0, 675), Vector3(325, 5, 710), Vector3(400, 4, 745), Vector3(460, 0, 760)], 52)
+	hills -= _hill(p, Vector2(810, 720), Vector2(95, 65), 4)
+	# Keep a broad, gently meandering valley between the regional uplands.
+	var valley_x := 520.0 + 18.0 * sin((z - 400.0) / 210.0)
+	var valley := exp(-pow((x - valley_x) / 105.0, 4))
+	valley *= smoothstep(300, 400, z) * (1.0 - smoothstep(760, 870, z))
+	var regional := (uplands + hills) * (1.0 - valley * 0.82)
+	var h := base + (mountains + _ridge(p, NORTH, 140) + regional) * inland
+	# The rising outside profile rejoins existing heights before these margins.
+	# Unlike blending toward a flat shelf, it does not excavate mountain faces.
+	if x > 320 and x < 760 and z > 290 and z < 680:
 		var d := _signed_distance(p, lake_polygon)
 		lake_distances[z * SIZE + x] = d
-		var basin := 5.0 - 3.2 * tanh(d / 12) if d >= 0 else 5.0 + 4.0 * tanh(-d / 28)
-		var blend := 1.0 - smoothstep(0, 65, -d)
-		var islet := _hill(p, Vector2(536, 524), Vector2(12, 6.5), 5.7)
-		islet += _hill(p, Vector2(543, 521), Vector2(5, 8), 3.2)
-		h = lerpf(h, basin + islet, blend)
+		var bank := maxf(-d, 0)
+		var basin := 5.0 - 3.2 * tanh(d / 12) if d >= 0 else 5.0 + 0.18 * bank + 0.005 * bank * bank
+		var islet := _plateau(p, Vector2(538, 488), Vector2(24, 16), 5.6)
+		islet += _hill(p, Vector2(552, 482), Vector2(12, 13), 1.1)
+		if d >= 0:
+			h = basin + islet
+		else:
+			# Smooth minimum only lowers the ground where the rising basin cuts
+			# into it. Open valley ground and the ridge crests remain untouched.
+			var rounding := minf(2.0, bank * 0.2)
+			var overlap := maxf(rounding - absf(h - basin), 0)
+			var lowered := minf(h, basin) - overlap * overlap / maxf(4 * rounding, 0.0001)
+			h = lerpf(h, lowered, 1.0 - smoothstep(18, 65, bank))
 	return h
 
 
@@ -187,7 +205,7 @@ func _build() -> void:
 	for z in FIELD_SIZE:
 		for x in FIELD_SIZE:
 			coast_field[z * FIELD_SIZE + x] = _signed_distance(Vector2(x * 2, z * 2), polygon)
-	print("V5 regional quality pass: coastline, mountain shoulders, lowlands, lake")
+	print("V7 controlled polish: expanded lake basin and walkable islet; selected broader beaches; preserved massifs and uplands")
 	var height := Image.create_empty(SIZE, SIZE, false, Image.FORMAT_RF)
 	var colors := Image.create_empty(SIZE, SIZE, false, Image.FORMAT_RGBA8)
 	for z in SIZE:
@@ -235,7 +253,7 @@ func _build() -> void:
 				terrain.data.set_control_blend(point, maxf(rock, sand) / maxf(grass + maxf(rock, sand), 0.0001))
 	terrain.data.update_maps()
 	terrain.data.save_directory(DIRECTORY + "/data")
-	print("ISLAND V5 SAVED: regions=", terrain.data.get_region_count(), " range=", terrain.data.get_height_range(), " spawn=", terrain.data.get_height(Vector3(500, 0, 650)))
+	print("ISLAND V7 SAVED: regions=", terrain.data.get_region_count(), " range=", terrain.data.get_height_range(), " spawn=", terrain.data.get_height(Vector3(500, 0, 650)))
 	world.queue_free()
 	await process_frame
 	quit()

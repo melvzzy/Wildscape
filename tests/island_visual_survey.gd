@@ -18,11 +18,12 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 
-func _capture(name: String, position: Vector3, target: Vector3, orthographic_size: float = 0) -> void:
-	camera.projection = Camera3D.PROJECTION_ORTHOGONAL if orthographic_size > 0 else Camera3D.PROJECTION_PERSPECTIVE
-	camera.size = maxf(orthographic_size, 1)
-	camera.position = position
-	camera.look_at(target, Vector3.FORWARD if orthographic_size > 0 else Vector3.UP)
+func _capture(name: String, position: Vector3, target: Vector3, orthographic_size: float = 0, live_player: bool = false) -> void:
+	if not live_player:
+		camera.projection = Camera3D.PROJECTION_ORTHOGONAL if orthographic_size > 0 else Camera3D.PROJECTION_PERSPECTIVE
+		camera.size = maxf(orthographic_size, 1)
+		camera.position = position
+		camera.look_at(target, Vector3.FORWARD if orthographic_size > 0 else Vector3.UP)
 	caption.text = name
 	for frame in 10:
 		await process_frame
@@ -48,6 +49,33 @@ func _ground(name: String, point: Vector2, target: Vector3) -> void:
 	var position := Vector3(point.x, 0, point.y)
 	position.y = terrain.data.get_height(position) + 1.7
 	await _capture(name, position, target)
+
+
+func _player_view(name: String, point: Vector2, target: Vector3) -> void:
+	var player: CharacterBody3D = world.get_node("Player")
+	player.process_mode = Node.PROCESS_MODE_INHERIT
+	player.visible = true
+	player.position = Vector3(point.x, terrain.data.get_height(Vector3(point.x, 0, point.y)) + 0.12, point.y)
+	player.velocity = Vector3.ZERO
+	player.set_first_person(true)
+	var direction := target - player.position - Vector3.UP * 1.62
+	player.camera_yaw.rotation.y = atan2(-direction.x, -direction.z)
+	player.camera_pitch.rotation.x = atan2(direction.y, Vector2(direction.x, direction.z).length())
+	player.reset_physics_interpolation()
+	player.camera.make_current()
+	terrain.set_camera(player.camera)
+	for frame in 35:
+		await physics_frame
+	if not player.is_on_floor():
+		push_error("Survey player is not grounded: " + name)
+		quit(1)
+		return
+	await _capture(name, Vector3.ZERO, Vector3.ZERO, 0, true)
+	print("GROUNDED PLAYER: ", name, " at ", player.position)
+	player.process_mode = Node.PROCESS_MODE_DISABLED
+	player.visible = false
+	camera.make_current()
+	terrain.set_camera(camera)
 
 
 func _run() -> void:
@@ -93,18 +121,24 @@ func _run() -> void:
 	await _capture("east_foothills", Vector3(550, 115, 650), Vector3(720, 35, 500))
 	await _capture("north_upland", Vector3(540, 70, 410), Vector3(530, 16, 220))
 	await _capture("south_plains", Vector3(420, 50, 790), Vector3(560, 10, 670))
-	await _ground("lake_west", Vector2(455, 525), Vector3(550, 5, 525))
-	await _ground("lake_east", Vector2(615, 525), Vector3(520, 5, 525))
-	await _ground("lake_north", Vector2(535, 450), Vector3(535, 5, 540))
-	await _ground("lake_south", Vector2(535, 600), Vector3(535, 5, 510))
+	await _ground("lake_west", Vector2(444, 480), Vector3(538, 5, 488))
+	await _ground("lake_east", Vector2(655, 480), Vector3(538, 5, 488))
+	await _ground("lake_north", Vector2(535, 375), Vector3(538, 5, 488))
+	await _ground("lake_south", Vector2(535, 580), Vector3(538, 5, 488))
 	await _ground("coast_north", Vector2(450, 140), Vector3(450, 0, 70))
-	await _ground("coast_northeast", Vector2(730, 280), Vector3(830, 0, 270))
-	await _ground("coast_east", Vector2(820, 480), Vector3(920, 0, 480))
-	await _ground("coast_southeast", Vector2(820, 700), Vector3(900, 0, 760))
-	await _ground("coast_south", Vector2(500, 840), Vector3(500, 0, 940))
-	await _ground("coast_southwest", Vector2(280, 780), Vector3(210, 0, 850))
-	await _ground("coast_west", Vector2(160, 500), Vector3(60, 0, 500))
-	await _ground("coast_northwest", Vector2(200, 200), Vector3(100, 0, 100))
+	await _ground("coast_northeast", Vector2(870, 250), Vector3(950, 0, 250))
+	await _ground("coast_east", Vector2(916, 480), Vector3(1000, 0, 480))
+	await _ground("coast_southeast", Vector2(860, 850), Vector3(950, 0, 900))
+	await _ground("coast_south", Vector2(500, 930), Vector3(500, 0, 1000))
+	await _ground("coast_southwest", Vector2(200, 845), Vector3(100, 0, 900))
+	await _ground("coast_west", Vector2(220, 520), Vector3(120, 0, 520))
+	await _ground("coast_northwest", Vector2(100, 300), Vector3(0, 0, 260))
+	await _player_view("player_southwest", Vector2(330, 795), Vector3(280, 35, 650))
+	await _player_view("player_southeast", Vector2(745, 800), Vector3(700, 40, 640))
+	await _player_view("player_northeast", Vector2(650, 260), Vector3(710, 40, 400))
+	await _player_view("player_west_bay", Vector2(235, 535), Vector3(160, 6, 480))
+	await _player_view("player_lake_shore", Vector2(500, 574), Vector3(538, 5, 488))
+	await _player_view("player_lake_islet", Vector2(538, 488), Vector3(600, 7, 490))
 	print("ISLAND SURVEY: %d rendered views saved to %s" % [captures, directory])
 	world.queue_free()
 	layer.queue_free()

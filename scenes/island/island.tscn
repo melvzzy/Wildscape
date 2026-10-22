@@ -78,7 +78,7 @@ size = Vector2(10000, 10000)
 
 [sub_resource type="PlaneMesh" id="LakeMesh"]
 material = SubResource("WaterMaterial")
-size = Vector2(160, 150)
+size = Vector2(260, 210)
 
 [node name="Island" type="Node3D" unique_id=526195769]
 process_mode = 1
@@ -110,12 +110,12 @@ cast_shadow = 0
 mesh = SubResource("WaterMesh")
 
 [node name="Lake" type="MeshInstance3D" parent="."]
-position = Vector3(535, 5, 525)
+position = Vector3(535, 5, 480)
 cast_shadow = 0
 mesh = SubResource("LakeMesh")
 
 [node name="Player" parent="." unique_id=1771068441 instance=ExtResource("1_player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 500, 11.38, 650)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 500, 9.57, 650)
 
 [node name="Menu" parent="." unique_id=395129842 instance=ExtResource("2_menu")]
 gameplay_mode = true

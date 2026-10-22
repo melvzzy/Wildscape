@@ -4,5 +4,5 @@ extends SceneTree
 
 
 func _initialize() -> void:
-	push_error("V3 refinement retired. Use build_island.gd -- --write-island-v5 only for deliberate replacement of saved terrain.")
+	push_error("V3 refinement retired. Use build_island.gd -- --write-island-v7 only for deliberate replacement of saved terrain.")
 	quit(1)
