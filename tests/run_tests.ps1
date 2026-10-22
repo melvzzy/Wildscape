@@ -48,6 +48,7 @@ Invoke-GodotCheck 'inventory-model' '--headless --script res://tests/inventory_m
 Invoke-GodotCheck 'grid-inventory' '--headless --script res://tests/grid_inventory_test.gd' 'GRID INVENTORY'
 Invoke-GodotCheck 'inventory-ui' '--headless --script res://tests/inventory_ui_test.gd' 'INVENTORY UI'
 Invoke-GodotCheck 'world-collection' '--headless --script res://tests/world_collection_test.gd' 'WORLD COLLECTION'
+Invoke-GodotCheck 'island' '--headless --script res://tests/island_test.gd' 'ISLAND'
 Invoke-GodotCheck 'startup-headless' '--headless --quit-after 120'
 Invoke-GodotCheck 'gameplay-headless' '--headless --scene res://scenes/main.tscn --quit-after 120'
 if ($Graphical) {
@@ -55,5 +56,6 @@ if ($Graphical) {
     Invoke-GodotCheck 'menu-flow-graphics' '--script res://tests/menu_flow_test.gd -- --capture-ui' 'FLOW'
     Invoke-GodotCheck 'inventory-ui-graphics' '--script res://tests/inventory_ui_test.gd -- --capture-ui' 'INVENTORY UI'
     Invoke-GodotCheck 'world-collection-graphics' '--script res://tests/world_collection_test.gd -- --capture-world' 'WORLD COLLECTION'
+    Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd -- --capture-island' 'ISLAND'
 }
 Write-Output "ALL CHECKS PASSED: $script:checkTotal assertions; logs in $logRoot"

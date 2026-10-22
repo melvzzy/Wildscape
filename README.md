@@ -6,9 +6,13 @@ art direction and later gameplay systems remain undecided.
 
 ## Open and play
 
-Import `project.godot` into Godot and press F5 for the main menu, then choose Play.
-Open `scenes/main.tscn` and press F6 to launch gameplay directly for development.
-The gameplay scene composes two independent, reusable scenes:
+Import `project.godot` into Godot and press F5 for the main menu, then choose Play
+to explore `scenes/island/island.tscn`. Open that scene and press F6 for direct
+island development. Its saved, editable Terrain3D region is 256 x 256 m.
+See [island authoring and verification](scenes/island/README.md).
+
+Open `scenes/main.tscn` and press F6 for the original development playground,
+including pickup, gathering and equipment fixtures. That scene still composes:
 
 - `scenes/player/player.tscn` and `player.gd`: CharacterBody3D controller, capsule,
   replaceable Visuals subtree, and FPS/TPS camera rig.

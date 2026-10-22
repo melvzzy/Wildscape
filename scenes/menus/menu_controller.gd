@@ -3,7 +3,7 @@ extends CanvasLayer
 ## Shared by main_menu.tscn and the independently launchable gameplay scene.
 
 const MAIN_MENU := "res://scenes/menus/main_menu.tscn"
-const GAMEPLAY := "res://scenes/main.tscn"
+const GAMEPLAY := "res://scenes/island/island.tscn"
 
 @export var gameplay_mode: bool = false
 
