@@ -227,6 +227,13 @@ neutral item markers and quantities require no external assets. The 600-unit squ
 drawing area fits configurable grid dimensions with one shared cell size; the
 default 6x6 grid uses 100-unit cells. Both panels fit the 1920x1080 reference and
 scale with the existing canvas configuration, including 800x600 windowed mode.
+Task 4.3 reduces only the surrounding margins/header/footer: panel reference size
+is 656x780, while the 600x600 grid and its drag targets are unchanged. Compact
+Close buttons replace full-width footers. The character keeps Head/Feet centered,
+Chest/Legs on the left and Primary/Secondary on the right. Both use graphite
+surfaces, restrained borders/shadows and one shared dimming layer. Text has a
+small-window readability floor (names 10 px, quantities/slot labels 11 px) and
+buttons retain at least 22 px height; the grid is never shrunk for this polish.
 
 Left-drag to move or merge; Shift-drag takes half, rounded down (minimum one).
 R toggles the dragged footprint by 90 degrees. Green/red overlays preview valid
@@ -373,3 +380,15 @@ The graphical tests use synthetic input and focus notifications, not a physical
 mouse/keyboard playtest. At 800x600 labels are necessarily small; unusual DPI,
 ultrawide/portrait layouts and exports remain unverified. No plugins or dependencies
 were added, and no commits, pushes or merges were created.
+
+Task 4.3 verification on 2026-10-22: Godot 4.7.2 full graphical runner passed
+**357 assertion executions**: 23 player, 26 interaction, 39 menu, 49 inventory
+model, 60 grid/equipment, 59 inventory UI, plus 41 menu and 60 UI graphical
+repeats. Import, bounded headless main-menu/direct-gameplay starts and graphical
+startup exited with code 0 and no logged errors. Existing test sources, item and
+equipment models, menu/input logic and main/pause theme were left unchanged.
+Rendered empty/populated windows at 1920x1080, 1280x720 and 800x600 were visually
+inspected; 800x600 Secondary/Gamma labels were given sufficient width after the
+first inspection. The grid remains square with single separators. No reference
+image was supplied. Physical mouse/keyboard playtesting and unusual DPI/monitor
+configurations remain manual follow-ups.

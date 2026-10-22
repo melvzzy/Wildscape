@@ -14,11 +14,11 @@ func _draw() -> void:
 	if kind == "grid":
 		var dimensions: Vector2i = view._inventory.get_grid_size()
 		var cell: float = view.cell_size()
-		draw_rect(Rect2(Vector2.ZERO, Vector2(dimensions) * cell), Color("101113"))
+		draw_rect(Rect2(Vector2.ZERO, Vector2(dimensions) * cell), Color("111214"))
 		for x in range(dimensions.x + 1):
-			draw_line(Vector2(x * cell, 0), Vector2(x * cell, dimensions.y * cell), Color("48494c"), view.grid_line_width(), true)
+			draw_line(Vector2(x * cell, 0), Vector2(x * cell, dimensions.y * cell), Color("3a3c40"), view.grid_line_width(), true)
 		for y in range(dimensions.y + 1):
-			draw_line(Vector2(0, y * cell), Vector2(dimensions.x * cell, y * cell), Color("48494c"), view.grid_line_width(), true)
+			draw_line(Vector2(0, y * cell), Vector2(dimensions.x * cell, y * cell), Color("3a3c40"), view.grid_line_width(), true)
 		for index in range(view._inventory.get_capacity()):
 			var stack: InventoryStack = view._inventory.get_stack(index)
 			if stack != null:
@@ -26,6 +26,7 @@ func _draw() -> void:
 				var rect := Rect2(Vector2(stack.position) * cell, Vector2(footprint) * cell).grow(-4)
 				view.draw_item(self, rect, stack, index == view._selected)
 	else:
+		draw_style_box(view.make_style(Color("16171a"), Color("24262a")), Rect2(174, 140, 252, 336))
 		var shade := Color("393b3e")
 		draw_circle(Vector2(300, 165), 30, shade)
 		draw_style_box(view.make_style(shade, Color("515357")), Rect2(266, 205, 68, 125))
@@ -35,8 +36,8 @@ func _draw() -> void:
 		draw_line(Vector2(318, 320), Vector2(330, 450), shade, 25, true)
 		for slot in range(6):
 			var rect: Rect2 = view.equipment_rect(slot)
-			draw_style_box(view.make_style(Color("151619"), Color("55575b")), rect)
-			view.draw_text(self, rect.position + Vector2(0, -10), view.SLOT_NAMES[slot], 20, rect.size.x)
+			draw_style_box(view.make_style(Color("111214"), Color("46484e")), rect)
+			view.draw_text(self, rect.position + Vector2(-24, -10), view.SLOT_NAMES[slot], view.readable_font_size(20, 11), rect.size.x + 48)
 			var stack: InventoryStack = view._equipment.get_stack(slot) if view._equipment != null else null
 			if stack != null:
 				view.draw_item(self, rect.grow(-4), stack, false)
