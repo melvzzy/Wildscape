@@ -64,7 +64,7 @@ ambient_light_energy = 0.45
 reflected_light_source = 2
 fog_enabled = true
 fog_light_color = Color(0.65, 0.74, 0.78, 1)
-fog_density = 0.0012
+fog_density = 0.00025
 
 [sub_resource type="StandardMaterial3D" id="WaterMaterial"]
 cull_mode = 2
@@ -76,10 +76,16 @@ roughness = 0.32
 material = SubResource("WaterMaterial")
 size = Vector2(10000, 10000)
 
+[sub_resource type="PlaneMesh" id="LakeMesh"]
+material = SubResource("WaterMaterial")
+size = Vector2(100, 95)
+
 [node name="Island" type="Node3D" unique_id=526195769]
 process_mode = 1
 
 [node name="Terrain3D" type="Terrain3D" parent="." unique_id=1778616190]
+region_size = 512
+mesh_size = 64
 data_directory = "res://scenes/island/data"
 material = SubResource("TerrainMaterial")
 assets = ExtResource("3_assets")
@@ -99,12 +105,17 @@ shadow_enabled = true
 directional_shadow_max_distance = 160.0
 
 [node name="Sea" type="MeshInstance3D" parent="." unique_id=703688080]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128, 0, 128)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 0, 256)
 cast_shadow = 0
 mesh = SubResource("WaterMesh")
 
+[node name="Lake" type="MeshInstance3D" parent="."]
+position = Vector3(282, 5, 275)
+cast_shadow = 0
+mesh = SubResource("LakeMesh")
+
 [node name="Player" parent="." unique_id=1771068441 instance=ExtResource("1_player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 128, 6.15, 180)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252, 7.72, 367)
 
 [node name="Menu" parent="." unique_id=395129842 instance=ExtResource("2_menu")]
 gameplay_mode = true

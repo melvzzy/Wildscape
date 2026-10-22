@@ -49,6 +49,7 @@ Invoke-GodotCheck 'grid-inventory' '--headless --script res://tests/grid_invento
 Invoke-GodotCheck 'inventory-ui' '--headless --script res://tests/inventory_ui_test.gd' 'INVENTORY UI'
 Invoke-GodotCheck 'world-collection' '--headless --script res://tests/world_collection_test.gd' 'WORLD COLLECTION'
 Invoke-GodotCheck 'island' '--headless --script res://tests/island_test.gd' 'ISLAND'
+Invoke-GodotCheck 'terrain-preflight' '--headless --script res://tests/terrain_preflight_test.gd' 'TERRAIN PREFLIGHT'
 Invoke-GodotCheck 'startup-headless' '--headless --quit-after 120'
 Invoke-GodotCheck 'gameplay-headless' '--headless --scene res://scenes/main.tscn --quit-after 120'
 if ($Graphical) {
