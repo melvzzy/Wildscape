@@ -20,8 +20,9 @@ func _physics_process(_delta: float) -> void:
 
 
 func refresh_target() -> void:
-	target = _find_target() if player.controls_active else null
-	aim_dot.visible = player.controls_active
+	var enabled: bool = player.controls_active and not get_tree().paused
+	target = _find_target() if enabled else null
+	aim_dot.visible = enabled
 	prompt.visible = is_instance_valid(target)
 	prompt.text = "[E] " + target.get_prompt() if is_instance_valid(target) else ""
 

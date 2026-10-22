@@ -1,0 +1,92 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/menus/menu_controller.gd" id="1_controller"]
+[ext_resource type="Theme" path="res://scenes/menus/menu_theme.tres" id="2_theme"]
+
+[node name="Menu" type="CanvasLayer"]
+process_mode = 3
+layer = 10
+script = ExtResource("1_controller")
+
+[node name="Overlay" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+
+[node name="Backdrop" type="ColorRect" parent="Overlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.025, 0.045, 0.05, 1)
+
+[node name="Center" type="CenterContainer" parent="Overlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="Overlay/Center"]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Overlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 48
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 48
+
+[node name="Stack" type="VBoxContainer" parent="Overlay/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="Heading" type="Label" parent="Overlay/Center/Panel/Margin/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.83, 0.56, 1)
+theme_override_font_sizes/font_size = 58
+text = "WILDSCAPE"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Overlay/Center/Panel/Margin/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.65, 0.6, 1)
+theme_override_font_sizes/font_size = 20
+text = "SANDBOX SURVIVAL RPG"
+horizontal_alignment = 1
+
+[node name="Buttons" type="VBoxContainer" parent="Overlay/Center/Panel/Margin/Stack"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Primary" type="Button" parent="Overlay/Center/Panel/Margin/Stack/Buttons"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+text = "Play"
+
+[node name="MainMenu" type="Button" parent="Overlay/Center/Panel/Margin/Stack/Buttons"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+text = "Main Menu"
+
+[node name="Quit" type="Button" parent="Overlay/Center/Panel/Margin/Stack/Buttons"]
+custom_minimum_size = Vector2(0, 68)
+layout_mode = 2
+text = "Quit"
+
+[node name="Hint" type="Label" parent="Overlay/Center/Panel/Margin/Stack"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.55, 0.65, 0.6, 1)
+theme_override_font_sizes/font_size = 18
+text = "ARROW KEYS / ENTER  ·  MOUSE"
+horizontal_alignment = 1

@@ -876,7 +876,7 @@ modulate = Color(0.95, 0.95, 0.86, 1)
 
 [node name="Instructions" type="Label3D" parent="."]
 position = Vector3(-5, 2.4, 14)
-text = "WILDSCAPE / PLAYGROUND\nWASD move | Shift sprint | Space jump\nV FPS / TPS | Mouse look | E interact\nEsc release | Click capture | R reset"
+text = "WILDSCAPE / PLAYGROUND\nWASD move | Shift sprint | Space jump\nV FPS / TPS | Mouse look | E interact\nEsc pause / resume | R reset"
 font_size = 24
 pixel_size = 0.006
 outline_size = 8

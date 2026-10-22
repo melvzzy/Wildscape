@@ -36,7 +36,6 @@ func _ready() -> void:
 	camera_yaw.rotation.y = global_rotation.y
 	spring_arm.add_excluded_object(get_rid())
 	set_first_person(false)
-	set_mouse_captured(true)
 	# Prime interpolation before the first render frame.
 	get_global_transform_interpolated()
 
@@ -47,11 +46,7 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("release_mouse"):
-		set_mouse_captured(false)
-	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		set_mouse_captured(true)
-	if not controls_active:
+	if not controls_active or get_tree().paused:
 		return
 	if event is InputEventMouseMotion:
 		camera_yaw.rotation.y -= event.screen_relative.x * mouse_sensitivity
@@ -105,9 +100,10 @@ func set_first_person(enabled: bool) -> void:
 
 
 func set_mouse_captured(captured: bool) -> void:
-	# Keep intent separate from OS state: headless drivers cannot capture a cursor.
+	# Input gate retained for controller/tests; MenuController owns the OS cursor.
 	controls_active = captured
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if captured else Input.MOUSE_MODE_VISIBLE
+	if not captured:
+		$Interaction.refresh_target()
 
 
 func reset_to_spawn() -> void:
@@ -118,8 +114,3 @@ func reset_to_spawn() -> void:
 	camera_pitch.rotation = Vector3(-0.15, 0.0, 0.0)
 	reset_physics_interpolation()
 	camera_yaw.global_position = global_position + Vector3.UP * 1.62
-
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		set_mouse_captured(false)

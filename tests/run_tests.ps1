@@ -1,0 +1,53 @@
+param(
+    [string]$GodotPath = 'godot',
+    [switch]$Graphical
+)
+
+$ErrorActionPreference = 'Stop'
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$engine = (Get-Command $GodotPath -CommandType Application -ErrorAction Stop).Source
+$logRoot = Join-Path $projectRoot '.godot'
+New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+$script:checkTotal = 0
+
+function Invoke-GodotCheck {
+    param([string]$Name, [string]$Options, [string]$ExpectedResult = '')
+
+    $logPath = Join-Path $logRoot "$Name.log"
+    if (Test-Path -LiteralPath $logPath) { Remove-Item -LiteralPath $logPath }
+    $arguments = "--path `"$projectRoot`" --log-file `"$logPath`" $Options"
+    $process = Start-Process -FilePath $engine -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    if (-not $process.WaitForExit(60000)) {
+        $process.Kill()
+        throw "$Name exceeded the 60 second timeout."
+    }
+    $process.Refresh()
+    if (-not (Test-Path -LiteralPath $logPath)) { throw "$Name produced no log." }
+    $logText = Get-Content -LiteralPath $logPath -Raw
+    $logText = $logText -replace '\x1B\[[0-?]*[ -/]*[@-~]', ''
+    $errorPattern = '(?im)^\s*(?:SCRIPT ERROR|ERROR|FATAL|FAIL|USER ERROR):|\b(?:Parse Error|Assertion failed|CRASHED)\b'
+    if ($process.ExitCode -ne 0 -or $logText -match $errorPattern) {
+        Write-Output $logText
+        throw "$Name failed (exit $($process.ExitCode)); see $logPath"
+    }
+    if ($ExpectedResult) {
+        $result = [regex]::Match($logText, "(?m)^${ExpectedResult} RESULT: (\d+) checks, 0 failures")
+        if (-not $result.Success) { throw "$Name did not report a successful test result; see $logPath" }
+        $script:checkTotal += [int]$result.Groups[1].Value
+        Write-Output "PASS $Name : $($result.Groups[1].Value) checks"
+    } else {
+        Write-Output "PASS $Name : exit 0, no logged errors"
+    }
+}
+
+Invoke-GodotCheck 'import' '--headless --import'
+Invoke-GodotCheck 'smoke' '--headless --script res://tests/player_smoke_test.gd' 'SMOKE'
+Invoke-GodotCheck 'interaction-smoke' '--headless --script res://tests/interaction_smoke_test.gd' 'INTERACTION'
+Invoke-GodotCheck 'menu-flow' '--headless --script res://tests/menu_flow_test.gd' 'FLOW'
+Invoke-GodotCheck 'startup-headless' '--headless --quit-after 120'
+Invoke-GodotCheck 'gameplay-headless' '--headless --scene res://scenes/main.tscn --quit-after 120'
+if ($Graphical) {
+    Invoke-GodotCheck 'startup-graphics' '--quit-after 120'
+    Invoke-GodotCheck 'menu-flow-graphics' '--script res://tests/menu_flow_test.gd -- --capture-ui' 'FLOW'
+}
+Write-Output "ALL CHECKS PASSED: $script:checkTotal assertions; logs in $logRoot"
