@@ -1,0 +1,117 @@
+[gd_scene load_steps=13 format=3]
+
+[ext_resource type="Script" path="res://scenes/player/player.gd" id="1_player"]
+
+[sub_resource type="CapsuleShape3D" id="BodyShape"]
+radius = 0.3
+height = 1.78
+
+[sub_resource type="StandardMaterial3D" id="Clothes"]
+albedo_color = Color(0.16, 0.39, 0.48, 1)
+roughness = 0.85
+
+[sub_resource type="StandardMaterial3D" id="Skin"]
+albedo_color = Color(0.78, 0.59, 0.41, 1)
+
+[sub_resource type="StandardMaterial3D" id="Boots"]
+albedo_color = Color(0.12, 0.15, 0.19, 1)
+
+[sub_resource type="BoxMesh" id="Torso"]
+material = SubResource("Clothes")
+size = Vector3(0.43, 0.57, 0.25)
+
+[sub_resource type="SphereMesh" id="Head"]
+material = SubResource("Skin")
+radius = 0.15
+height = 0.3
+
+[sub_resource type="BoxMesh" id="Leg"]
+material = SubResource("Boots")
+size = Vector3(0.17, 0.8, 0.22)
+
+[sub_resource type="BoxMesh" id="Arm"]
+material = SubResource("Clothes")
+size = Vector3(0.13, 0.59, 0.16)
+
+[sub_resource type="BoxMesh" id="Nose"]
+material = SubResource("Skin")
+size = Vector3(0.07, 0.07, 0.08)
+
+[sub_resource type="SphereShape3D" id="CameraShape"]
+radius = 0.18
+
+[sub_resource type="BoxMesh" id="Foot"]
+material = SubResource("Boots")
+size = Vector3(0.18, 0.12, 0.29)
+
+[node name="Player" type="CharacterBody3D"]
+collision_layer = 2
+collision_mask = 1
+floor_snap_length = 0.3
+floor_max_angle = 0.7853982
+floor_constant_speed = true
+safe_margin = 0.005
+script = ExtResource("1_player")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.89, 0)
+shape = SubResource("BodyShape")
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="Torso" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 1.145, 0)
+mesh = SubResource("Torso")
+
+[node name="Head" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 1.63, 0)
+mesh = SubResource("Head")
+
+[node name="Nose" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0, 1.63, -0.16)
+mesh = SubResource("Nose")
+
+[node name="LeftLeg" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-0.115, 0.46, 0)
+mesh = SubResource("Leg")
+
+[node name="RightLeg" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0.115, 0.46, 0)
+mesh = SubResource("Leg")
+
+[node name="LeftFoot" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-0.115, 0.06, -0.035)
+mesh = SubResource("Foot")
+
+[node name="RightFoot" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0.115, 0.06, -0.035)
+mesh = SubResource("Foot")
+
+[node name="LeftArm" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(-0.3, 1.135, 0)
+mesh = SubResource("Arm")
+
+[node name="RightArm" type="MeshInstance3D" parent="Visuals"]
+position = Vector3(0.3, 1.135, 0)
+mesh = SubResource("Arm")
+
+[node name="CameraYaw" type="Node3D" parent="."]
+top_level = true
+physics_interpolation_mode = 2
+position = Vector3(0, 1.62, 0)
+
+[node name="CameraPitch" type="Node3D" parent="CameraYaw"]
+rotation = Vector3(-0.15, 0, 0)
+
+[node name="SpringArm3D" type="SpringArm3D" parent="CameraYaw/CameraPitch"]
+shape = SubResource("CameraShape")
+spring_length = 3.5
+collision_mask = 1
+margin = 0.08
+
+[node name="Camera3D" type="Camera3D" parent="CameraYaw/CameraPitch/SpringArm3D"]
+current = true
+fov = 75.0
+near = 0.05
+far = 160.0
+
