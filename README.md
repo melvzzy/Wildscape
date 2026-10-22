@@ -43,8 +43,8 @@ directly into gameplay. They are unavailable from the main menu or pause menu.
 `scenes/menus/main_menu.tscn` is the startup scene. It and gameplay each instance
 `game_menu.tscn`, whose scene-local `menu_controller.gd` owns scene transitions,
 Escape, pause, focus loss and OS mouse capture. `menu_theme.tres` is a small shared
-theme with a visible keyboard focus border. There are no autoloads or global state
-managers. The menu changes between Play/Quit and Resume/Main Menu/Quit, and also
+theme with a visible keyboard focus marker. The gameplay UI adds no autoloads or
+global state managers. The menu changes between Play/Quit and Resume/Main Menu/Quit, and also
 hosts the inventory view. It owns all inventory mouse/pause transitions.
 
 The gameplay root explicitly uses Pausable; player, camera and interactions
@@ -106,6 +106,7 @@ The bounded 48 x 48 m playground contains:
 - Obstacles, a low beam, 0.8/1.2 m passages, and a tall camera collision wall.
 - 1.0, 1.78 and 3.0 m scale references, color-coded geometry and labels.
 - An interaction test area to the left of spawn: switch, one-shot beacon and test token.
+- A collection area to the right of spawn: three neutral pickups and a finite gathering source.
 
 ## Interaction foundation
 
@@ -135,6 +136,44 @@ disables interaction, and the token disappears without creating any item data.
 Each object owns its display material. Restart the scene to restore the beacon
 and token; R only resets the player. The test token does not add inventory items.
 Neither object states nor inventory contents are saved.
+
+## World pickups and finite gathering
+
+`scenes/interaction/world_pickup.tscn` is a reusable World-layer StaticBody3D
+with neutral geometry, matching collision and a world-space label. Configure
+`item_id` and positive `quantity` in the Inspector. IDs resolve through the
+recipient's existing ItemCatalog; no separate lookup manager or item definitions
+are created. Player exposes its owned model through `get_inventory()`.
+
+`world_item_source.gd` implements the existing WorldInteractable contract. The
+unchanged player interactor owns E, camera targeting, 2.5 m eye range and wall
+checks. A source calls `SlotInventory.add(id, quantity)` once and subtracts only
+the returned accepted count. Existing stack space, grid footprints and automatic
+rotation use the inventory's existing rules. Partial quantities stay in the world;
+a fully collected pickup disables interaction immediately and is queued for
+removal. A failed placement leaves both quantities unchanged and adds a short
+"No room" message to the existing E prompt. Invalid IDs, nonpositive quantities,
+missing/wrong inventories and paused sources reject safely.
+
+The collection lock covers synchronous inventory-change and final interaction
+signals. Reentrant callbacks cannot collect the same source again before its
+world count is updated, including partial collection. A later interaction may
+collect the remainder. Inventory notifications keep their existing semantics:
+the inventory is committed when its signal fires; the source's world quantity
+is updated when add() returns, before the final interaction signal.
+
+`gathering_source.tscn` inherits the pickup scene and shares all insertion logic.
+It sets `remove_when_depleted = false`: one E requests all available units that
+fit. At zero it stays collidable, turns gray, reads DEPLETED and rejects further
+interaction. There are no tools, timers, respawns or harvesting rates.
+
+Play/F6, then walk right from spawn toward **PICKUPS / FINITE GATHERING** at
+approximately x=6..13.5, z=15. Aim at a light box within reach and press E; Tab
+shows the collected stacks. Pickups contain Alpha x17, Beta x6 and Delta x1;
+the taller green-gray source supplies Alpha x24. V switches FPS/TPS. The normal
+player still starts empty. Re-enter gameplay to restore these test quantities;
+R resets the player only. The old switch, beacon and removal-only token are
+unchanged. No world dropping, saves, loot tables or Terrain3D test world is added.
 
 ## Items and grid inventory
 
@@ -227,13 +266,19 @@ neutral item markers and quantities require no external assets. The 600-unit squ
 drawing area fits configurable grid dimensions with one shared cell size; the
 default 6x6 grid uses 100-unit cells. Both panels fit the 1920x1080 reference and
 scale with the existing canvas configuration, including 800x600 windowed mode.
-Task 4.3 reduces only the surrounding margins/header/footer: panel reference size
-is 656x780, while the 600x600 grid and its drag targets are unchanged. Compact
-Close buttons replace full-width footers. The character keeps Head/Feet centered,
-Chest/Legs on the left and Primary/Secondary on the right. Both use graphite
-surfaces, restrained borders/shadows and one shared dimming layer. Text has a
+Task 4.4 uses left-aligned title rows with compact close controls, a thin shared
+separator and no permanent instruction footer. The 600x600 grid and its drag
+targets remain unchanged; the panel reference width is 640. A 40% larger central
+silhouette sits between two symmetric columns: Head/Chest/Legs on the left,
+Primary/Secondary/Feet on the right. Both use the shared graphite menu theme,
+restrained borders/shadows and one dimming layer. Text retains the Task 4.3
 small-window readability floor (names 10 px, quantities/slot labels 11 px) and
 buttons retain at least 22 px height; the grid is never shrunk for this polish.
+The main and pause menus use an open title/action composition with a short rule
+instead of a dialog box, subtitles or permanent navigation hints. Their actions
+and keyboard navigation are unchanged; hover/focus use a muted accent. Main-menu
+type, pause-menu type and action text maintain separate size hierarchies and
+minimum readable sizes in small windows.
 
 Left-drag to move or merge; Shift-drag takes half, rounded down (minimum one).
 R toggles the dragged footprint by 90 degrees. Green/red overlays preview valid
@@ -246,7 +291,7 @@ loss cancel safely. A changed source snapshot also rejects stale drops.
 
 Tab/C/Close buttons route through MenuController, which alone controls pause and
 mouse capture. Escape closes both windows. Focus loss replaces them with the
-pause menu and preserves all quantities. No world dropping, pickups, crafting,
+pause menu and preserves all quantities. No world dropping, crafting,
 attributes, container UI or persistence are implemented.
 
 For populated examples, open **`tests/fixtures/inventory_demo.tscn` with F6**.
@@ -265,13 +310,16 @@ The reusable PowerShell runner needs only Godot, with no external framework:
 ```
 
 If Godot is on PATH, `-GodotPath` can be omitted. The runner imports the project,
-runs player, interaction, menu flow, inventory model, grid/equipment and inventory UI suites, and
+runs player, interaction, menu flow, inventory model, grid/equipment, inventory UI
+and world collection suites, and
 starts both the default main menu and the independent gameplay scene headlessly.
 `-Graphical` additionally checks normal fullscreen startup and runs the menu flow
 with rendered captures at 1920 x 1080, 1280 x 720, 1024 x 768 and 800 x 600.
 Two extra graphical assertions check borderless fullscreen and OS cursor mode. Window sizes
 are changed only in the test process; project defaults remain fullscreen. The
 graphical inventory suite also captures empty/populated grids up to 1920 x 1080.
+The graphical collection suite captures the new playground area, FPS/TPS prompts,
+depletion and inventory contents after actual E collection.
 
 Each invocation must exit with code 0, log no Godot script/scene errors, and
 (for suites) report a successful assertion count. The runner fails on logged
@@ -283,10 +331,10 @@ collisions, slopes/stairs/passages, camera-relative movement, FPS/TPS, camera
 collision, input gating and fall recovery. The 26 interaction checks cover sprint
 progression, jump travel, range, walls, offset-camera visibility, prompts,
 activation signals, held-key behavior, disabled targets and object lifecycles.
-The 39 headless menu checks cover startup, navigation, responsive layout, scene
+The 42 headless menu checks cover startup, navigation, responsive layout, scene
 changes, actual Escape/Enter dispatch, pause/resume, player and rigid-body freeze,
 camera/input blocking, interactions, focus notifications, returning to main menu,
-independent gameplay startup and Quit. The same flow has 41 graphical checks,
+independent gameplay startup and Quit. The same flow has 44 graphical checks,
 including borderless fullscreen and actual OS mouse capture.
 Inventory adds 49 pure model checks, including ID validation, invalid operations,
 stack limits, overflow, partial transfers, notifications and 250 deterministic
@@ -298,8 +346,12 @@ every equipment slot and 400 deterministic mixed operations with conservation.
 Inventory UI covers empty ownership, actual mouse/key dispatch, independent
 windows, model binding, multi-cell drag/drop, rotation, partial merges, splitting,
 equipment, stale sources, cancellation, focus/pause compatibility and layout at
-1920 x 1080, 1280 x 720 and 800 x 600: currently 59 headless / 60 graphical
+1920 x 1080, 1280 x 720 and 800 x 600: currently 65 headless / 66 graphical
 assertions. Counts and executed results are recorded below.
+World collection adds 46 checks covering partial/full insertion, footprints and
+rotated merges, invalid IDs/quantities/receivers, depletion, signal reentrancy,
+180 deterministic conservation steps across two inventories, and actual FPS/TPS
+targeting, E dispatch, range, walls, pause, UI ownership and original interactables.
 
 Headless drivers cannot capture a physical cursor; regression tests use the
 player input gate separately from OS cursor state. Restricted execution may block
@@ -313,7 +365,8 @@ walls and under geometry, check camera feel at different frame rates, and try
 real Alt-Tab/focus changes and menu navigation. Automated focus checks simulate
 Godot focus notifications; they do not constitute a physical Alt-Tab playtest.
 There are no animations or packaged-build/export checks yet. Crafting, gathering,
-equipment effects, world pickups and other gameplay systems remain unimplemented.
+equipment effects and other gameplay systems remain unimplemented. World pickups
+and the finite gathering example are implemented as described above.
 
 Verified on 2026-10-22 with Godot 4.7.2: project import, 120-iteration headless
 startup, 120-iteration graphical startup, and the physics integration suite all
@@ -392,3 +445,42 @@ inspected; 800x600 Secondary/Gamma labels were given sufficient width after the
 first inspection. The grid remains square with single separators. No reference
 image was supplied. Physical mouse/keyboard playtesting and unusual DPI/monitor
 configurations remain manual follow-ups.
+
+Task 4.4 verification on 2026-10-22: full graphical runner passed **375 assertion
+executions** (23 player, 26 interaction, 42 menu, 49 inventory model, 60
+grid/equipment, 65 inventory UI, plus graphical repeats of 44 menu and 66 UI).
+Import, bounded main-menu/direct-gameplay headless startup and graphical startup
+passed with exit 0 and no logged errors. The existing tests were extended with
+three pause-layout checks and six independent side-window position checks;
+no existing assertions or data-model operations were removed or weakened.
+
+Fifteen rendered views were visually inspected: main menu, pause menu, both side
+panels, character alone and inventory alone at 1920x1080, 1280x720 and 800x600.
+Captures are in `.godot/main-menu-*.png`, `pause-menu-*.png`,
+`inventory-populated-*.png`, `character-only-*.png` and `inventory-only-*.png`.
+The first full run exposed a headless minimum-height issue in the empty status
+label. Empty status labels now leave the layout; failed-drop messages remain
+visible. The complete runner then passed, including the original bounds check.
+No connected Godot MCP tools were available. Existing local project/plugin
+changes were preserved; no plugins, data-model changes, gameplay systems or final
+assets were added. Physical mouse/keyboard feel, real Alt-Tab and unusual DPI or
+monitor configurations remain manual checks.
+
+Task 5 verification on 2026-10-22: Godot 4.7.2 full graphical runner passed
+**467 assertion executions**: all prior 375 executions plus 46 headless and 46
+graphical world-collection checks. Import, bounded headless main-menu and direct
+gameplay starts, and graphical startup exited with code 0 and no logged errors.
+The seven-suite runner additionally detects logged errors independently of exits.
+The new collection checks include partial acceptance, rotated/multi-cell placement,
+full/fragmented grids, invalid IDs/quantities/receivers, depletion, held/repeated E,
+reentrancy in both inventory and interaction signals, and 180 deterministic mixed
+operations checking item conservation. Real camera rays verify FPS/TPS, range,
+walls and pause; inventory/UI/menu regressions passed unchanged.
+
+Rendered collection-area overview, FPS/TPS E prompts, depleted resource and the
+existing UI containing collected stacks were visually inspected; screenshots are
+in `.godot/collection-*.png`. No physical mouse/keyboard playtest was performed.
+Resources offer all units that fit per E and do not regenerate; restarting a
+gameplay session restores the authored world quantities. No new plugins, UI
+redesign, inventory data-model changes, final assets, Terrain3D world, commits,
+pushes or merges were introduced. Pre-existing local UI/plugin changes remain.

@@ -1,53 +1,66 @@
-[gd_resource type="Theme" load_steps=6 format=3]
+[gd_resource type="Theme" load_steps=7 format=3]
 
 [sub_resource type="StyleBoxFlat" id="Panel"]
-bg_color = Color(0.065, 0.095, 0.095, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.27, 0.36, 0.33, 1)
+bg_color = Color(0.065, 0.073, 0.085, 0.98)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.24, 0.26, 0.29, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_left = 2
+corner_radius_bottom_right = 2
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 10
+shadow_offset = Vector2(0, 4)
 
 [sub_resource type="StyleBoxFlat" id="ButtonNormal"]
-bg_color = Color(0.12, 0.18, 0.17, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.29, 0.4, 0.36, 1)
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+bg_color = Color(0, 0, 0, 0)
+border_width_bottom = 1
+border_color = Color(0.22, 0.24, 0.27, 1)
 
 [sub_resource type="StyleBoxFlat" id="ButtonHover"]
-bg_color = Color(0.2, 0.28, 0.24, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.77, 0.69, 0.43, 1)
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+bg_color = Color(0.14, 0.155, 0.18, 0.8)
+border_width_bottom = 1
+border_color = Color(0.45, 0.47, 0.5, 1)
 
 [sub_resource type="StyleBoxFlat" id="ButtonPressed"]
-bg_color = Color(0.08, 0.13, 0.12, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.77, 0.69, 0.43, 1)
+content_margin_left = 16.0
+content_margin_top = 8.0
+content_margin_right = 16.0
+content_margin_bottom = 8.0
+bg_color = Color(0.055, 0.06, 0.07, 1)
+border_width_bottom = 1
+border_color = Color(0.5, 0.5, 0.48, 1)
 
 [sub_resource type="StyleBoxFlat" id="ButtonFocus"]
 bg_color = Color(0, 0, 0, 0)
 border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(0.94, 0.82, 0.5, 1)
+border_color = Color(0.7, 0.68, 0.61, 1)
+
+[sub_resource type="StyleBoxLine" id="Separator"]
+color = Color(0.24, 0.26, 0.29, 1)
+thickness = 1
 
 [resource]
-default_font_size = 26
-Button/colors/font_color = Color(0.89, 0.9, 0.81, 1)
-Button/colors/font_hover_color = Color(1, 0.94, 0.73, 1)
-Button/colors/font_focus_color = Color(1, 0.94, 0.73, 1)
+default_font_size = 24
+Button/colors/font_color = Color(0.75, 0.77, 0.8, 1)
+Button/colors/font_hover_color = Color(0.93, 0.92, 0.88, 1)
+Button/colors/font_focus_color = Color(0.93, 0.92, 0.88, 1)
 Button/styles/normal = SubResource("ButtonNormal")
 Button/styles/hover = SubResource("ButtonHover")
 Button/styles/pressed = SubResource("ButtonPressed")
 Button/styles/focus = SubResource("ButtonFocus")
-Label/colors/font_color = Color(0.89, 0.9, 0.81, 1)
+Label/colors/font_color = Color(0.86, 0.87, 0.89, 1)
 PanelContainer/styles/panel = SubResource("Panel")
+HSeparator/constants/separation = 1
+HSeparator/styles/separator = SubResource("Separator")

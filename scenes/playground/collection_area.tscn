@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/interaction/world_pickup.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/interaction/gathering_source.tscn" id="2"]
+
+[node name="CollectionArea" type="Node3D"]
+
+[node name="AlphaPickup" parent="." instance=ExtResource("1")]
+item_id = &"test_alpha"
+quantity = 17
+
+[node name="BetaPickup" parent="." instance=ExtResource("1")]
+position = Vector3(2.5, 0, 0)
+item_id = &"test_beta"
+quantity = 6
+
+[node name="DeltaPickup" parent="." instance=ExtResource("1")]
+position = Vector3(5, 0, 0)
+item_id = &"test_delta"
+quantity = 1
+
+[node name="GatheringSource" parent="." instance=ExtResource("2")]
+position = Vector3(7.5, 0, 0)
+item_id = &"test_alpha"
+quantity = 24
+
+[node name="ZoneLabel" type="Label3D" parent="."]
+position = Vector3(3.75, 2.6, 0)
+text = "PICKUPS / FINITE GATHERING\nE collect • Tab inventory"
+font_size = 28
+pixel_size = 0.009
+outline_size = 8

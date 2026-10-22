@@ -1,6 +1,7 @@
-[gd_scene load_steps=86 format=3]
+[gd_scene load_steps=87 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/playground/interaction_area.tscn" id="1_interactions"]
+[ext_resource type="PackedScene" path="res://scenes/playground/collection_area.tscn" id="2_collection"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial"]
 sky_top_color = Color(0.22, 0.39, 0.56, 1)
@@ -932,4 +933,7 @@ shape = SubResource("Shape37")
 
 [node name="InteractionArea" parent="." instance=ExtResource("1_interactions")]
 position = Vector3(-9, 0, 11)
+
+[node name="CollectionArea" parent="." instance=ExtResource("2_collection")]
+position = Vector3(6, 0, 15)
 

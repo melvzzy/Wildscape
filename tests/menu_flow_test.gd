@@ -158,7 +158,12 @@ func _run() -> void:
 	_check(rigid.position.is_equal_approx(rigid_position), "pause also freezes independent rigid-body physics")
 	_check(is_equal_approx(player.camera_yaw.rotation.y, yaw) and player.first_person == fps, "pause blocks mouse look and camera switching")
 	_check(not player.controls_active and Input.mouse_mode == Input.MOUSE_MODE_VISIBLE, "clicking menu background cannot capture the mouse")
-	await _capture("pause-menu-800x600")
+	for size in [Vector2i(1920, 1080), Vector2i(1280, 720), Vector2i(800, 600)]:
+		root.size = size
+		await _frames(3)
+		var panel: Control = menu.get_node("Overlay/Center/Panel")
+		_check(root.get_visible_rect().encloses(panel.get_global_rect()) and panel.get_global_rect().get_center().distance_to(root.get_visible_rect().get_center()) < 2.0 and is_equal_approx(menu.primary_button.size.x, menu.main_menu_button.size.x), "pause composition stays centered, visible and aligned at %s" % size)
+		await _capture("pause-menu-%dx%d" % [size.x, size.y])
 	for action in ["move_forward", "jump", "interact"]:
 		Input.action_release(action)
 	await _escape()

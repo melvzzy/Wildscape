@@ -10,7 +10,6 @@ const GAMEPLAY := "res://scenes/main.tscn"
 @onready var overlay: Control = $Overlay
 @onready var backdrop: ColorRect = $Overlay/Backdrop
 @onready var heading: Label = $Overlay/Center/Panel/Margin/Stack/Heading
-@onready var subtitle: Label = $Overlay/Center/Panel/Margin/Stack/Subtitle
 @onready var primary_button: Button = $Overlay/Center/Panel/Margin/Stack/Buttons/Primary
 @onready var main_menu_button: Button = $Overlay/Center/Panel/Margin/Stack/Buttons/MainMenu
 @onready var quit_button: Button = $Overlay/Center/Panel/Margin/Stack/Buttons/Quit
@@ -33,14 +32,23 @@ func _ready() -> void:
 		player = get_parent().get_node("Player")
 		inventory_view.bind_inventory(player.inventory, player.equipment)
 		heading.text = "PAUSED"
-		subtitle.text = "The wild can wait."
 		primary_button.text = "Resume"
-		backdrop.color.a = 0.88
+		backdrop.color.a = 0.8
 		overlay.hide()
 		_resume_input_when_safe()
 	else:
 		_apply_input(false)
 		primary_button.grab_focus()
+	get_viewport().size_changed.connect(_update_menu_typography)
+	_update_menu_typography()
+
+
+func _update_menu_typography() -> void:
+	var scale := get_viewport().get_stretch_transform().get_scale().x
+	heading.add_theme_font_size_override("font_size", maxi(40 if gameplay_mode else 72, ceili((20 if gameplay_mode else 26) / scale)))
+	for button in [primary_button, main_menu_button, quit_button]:
+		button.add_theme_font_size_override("font_size", maxi(24, ceili(14 / scale)))
+		button.custom_minimum_size = Vector2(320, maxf(52, 30 / scale))
 
 
 func _input(event: InputEvent) -> void:

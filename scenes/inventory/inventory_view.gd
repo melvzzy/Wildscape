@@ -6,7 +6,7 @@ signal character_close_requested
 
 const Board = preload("res://scenes/inventory/inventory_board.gd")
 const SLOT_NAMES := ["Head", "Chest", "Legs", "Feet", "Primary", "Secondary"]
-const GEAR_POSITIONS := [Vector2(246, 24), Vector2(24, 188), Vector2(24, 372), Vector2(246, 492), Vector2(468, 188), Vector2(468, 372)]
+const GEAR_POSITIONS := [Vector2(8, 76), Vector2(8, 250), Vector2(8, 424), Vector2(476, 424), Vector2(476, 76), Vector2(476, 250)]
 
 var inventory_panel: PanelContainer
 var character_panel: PanelContainer
@@ -15,6 +15,7 @@ var character_board: Control
 var drag_overlay: Control
 var status: Label
 var close_button: Button
+var character_close_button: Button
 var _inventory: SlotInventory
 var _equipment: EquipmentInventory
 var _selected: int = -1
@@ -36,15 +37,19 @@ func _ready() -> void:
 	character_board = _board(character_panel.get_node("Margin/Stack"), "equipment")
 	var footer := HBoxContainer.new()
 	footer.name = "Footer"
+	footer.custom_minimum_size.y = 24
 	footer.add_theme_constant_override("separation", 12)
 	inventory_panel.get_node("Margin/Stack").add_child(footer)
 	status = Label.new()
-	status.text = "Shift: split • R: rotate"
+	status.text = ""
+	status.custom_minimum_size.y = 24
+	status.hide()
 	status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	status.add_theme_color_override("font_color", Color("a4a5aa"))
 	footer.add_child(status)
-	close_button = _close(footer, "Close · Tab", func() -> void: close_requested.emit())
-	_close(character_panel.get_node("Margin/Stack"), "Close · C", func() -> void: character_close_requested.emit())
+	close_button = _close(inventory_panel.get_node("Margin/Stack/Header"), "Close inventory (Tab)", func() -> void: close_requested.emit())
+	character_close_button = _close(character_panel.get_node("Margin/Stack/Header"), "Close character (C)", func() -> void: character_close_requested.emit())
+	grid.tooltip_text = "Drag to move • Shift-drag to split • R to rotate"
 	drag_overlay = _board(self, "ghost")
 	drag_overlay.custom_minimum_size = Vector2.ZERO
 	drag_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -66,35 +71,34 @@ func make_style(fill: Color, border: Color) -> StyleBoxFlat:
 func _panel(title: String, right: bool) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.name = "InventoryPanel" if right else "CharacterPanel"
-	var surface := make_style(Color("191a1d"), Color("46474b"))
-	surface.shadow_color = Color(0, 0, 0, 0.3)
-	surface.shadow_size = 8
-	surface.shadow_offset = Vector2(0, 3)
-	panel.add_theme_stylebox_override("panel", surface)
 	add_child(panel)
 	panel.anchor_left = 1.0 if right else 0.0
 	panel.anchor_right = panel.anchor_left
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
-	panel.offset_left = -728 if right else 72
-	panel.offset_right = -72 if right else 728
-	panel.offset_top = -390
-	panel.offset_bottom = 390
+	panel.offset_left = -712 if right else 72
+	panel.offset_right = -72 if right else 712
+	panel.offset_top = -376
+	panel.offset_bottom = 376
 	var margin := MarginContainer.new()
 	margin.name = "Margin"
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 28)
+		margin.add_theme_constant_override("margin_" + side, 20)
 	panel.add_child(margin)
 	var stack := VBoxContainer.new()
 	stack.name = "Stack"
 	stack.add_theme_constant_override("separation", 12)
 	margin.add_child(stack)
+	var header := HBoxContainer.new()
+	header.name = "Header"
+	stack.add_child(header)
 	var heading := Label.new()
 	heading.name = "Heading"
 	heading.text = title
-	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.add_theme_color_override("font_color", Color("dedbd3"))
-	stack.add_child(heading)
+	header.add_child(heading)
+	stack.add_child(HSeparator.new())
 	return panel
 
 
@@ -104,7 +108,7 @@ func _board(parent: Node, kind: String) -> Control:
 	board.view = self
 	board.kind = kind
 	board.custom_minimum_size = Vector2(600, 600)
-	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	board.mouse_filter = Control.MOUSE_FILTER_PASS if kind == "grid" else Control.MOUSE_FILTER_IGNORE
 	parent.add_child(board)
 	return board
 
@@ -112,10 +116,11 @@ func _board(parent: Node, kind: String) -> Control:
 func _close(parent: Control, title: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.name = "Close"
-	button.text = title
-	button.custom_minimum_size = Vector2(136, 40)
+	button.text = "×"
+	button.tooltip_text = title
+	button.custom_minimum_size = Vector2(36, 36)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	button.add_theme_stylebox_override("normal", make_style(Color("25262a"), Color("47484e")))
+	button.add_theme_stylebox_override("normal", make_style(Color.TRANSPARENT, Color.TRANSPARENT))
 	button.add_theme_stylebox_override("hover", make_style(Color("323439"), Color("73757d")))
 	button.add_theme_stylebox_override("pressed", make_style(Color("121315"), Color("73757d")))
 	button.add_theme_stylebox_override("focus", make_style(Color.TRANSPARENT, Color("b7af98")))
@@ -135,10 +140,11 @@ func _update_typography() -> void:
 	# Keep the grid's drag targets unchanged; only text and button height need
 	# a readability floor when the 1920-unit canvas is downscaled.
 	for panel in [inventory_panel, character_panel]:
-		panel.get_node("Margin/Stack/Heading").add_theme_font_size_override("font_size", readable_font_size(26, 14))
-	for button in [close_button, character_panel.get_node("Margin/Stack/Close")]:
-		button.add_theme_font_size_override("font_size", readable_font_size(20, 12))
-		button.custom_minimum_size.y = maxf(40, 22 / get_viewport().get_stretch_transform().get_scale().x)
+		panel.get_node("Margin/Stack/Header/Heading").add_theme_font_size_override("font_size", readable_font_size(24, 14))
+	for button in [close_button, character_close_button]:
+		button.add_theme_font_size_override("font_size", readable_font_size(28, 16))
+		var extent := maxf(36, 22 / get_viewport().get_stretch_transform().get_scale().x)
+		button.custom_minimum_size = Vector2.ONE * extent
 	status.add_theme_font_size_override("font_size", readable_font_size(18, 10))
 	_refresh()
 
@@ -159,6 +165,8 @@ func bind_inventory(inventory: SlotInventory, equipment: EquipmentInventory = nu
 
 func set_windows(inventory_open: bool, character_open: bool) -> void:
 	clear_selection()
+	status.text = ""
+	status.hide()
 	inventory_panel.visible = inventory_open
 	character_panel.visible = character_open
 	visible = inventory_open or character_open
@@ -166,7 +174,7 @@ func set_windows(inventory_open: bool, character_open: bool) -> void:
 		if inventory_open:
 			close_button.grab_focus()
 		else:
-			character_panel.get_node("Margin/Stack").get_child(-1).grab_focus()
+			character_close_button.grab_focus()
 
 
 func clear_selection() -> void:
@@ -294,7 +302,8 @@ func commit_drop(kind: String, index: int) -> bool:
 		else:
 			success = _inventory.move_stack(_drag.index, index, _drag.quantity, _drag.rotate) > 0
 	clear_selection()
-	status.text = "Shift: split • R: rotate" if success else "No change — invalid drop"
+	status.text = "" if success else "No change — invalid drop"
+	status.visible = not success
 	return success
 
 

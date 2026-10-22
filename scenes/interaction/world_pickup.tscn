@@ -1,0 +1,35 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scenes/interaction/world_item_source.gd" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="Material"]
+albedo_color = Color(0.57, 0.61, 0.66, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="Mesh"]
+material = SubResource("Material")
+size = Vector3(0.7, 0.5, 0.7)
+
+[sub_resource type="BoxShape3D" id="Shape"]
+size = Vector3(0.7, 0.5, 0.7)
+
+[node name="WorldPickup" type="StaticBody3D"]
+collision_layer = 1
+collision_mask = 2
+script = ExtResource("1")
+interaction_text = "Pick up"
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.25, 0)
+mesh = SubResource("Mesh")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.25, 0)
+shape = SubResource("Shape")
+
+[node name="StateLabel" type="Label3D" parent="."]
+position = Vector3(0, 1.0, 0)
+font_size = 24
+pixel_size = 0.008
+outline_size = 8
+billboard = 1

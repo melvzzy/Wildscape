@@ -50,6 +50,10 @@ func _ready() -> void:
 	get_global_transform_interpolated()
 
 
+func get_inventory() -> SlotInventory:
+	return inventory
+
+
 func _process(_delta: float) -> void:
 	# Render-time follow avoids fixed-physics-tick jitter; look stays immediate.
 	camera_yaw.global_position = get_global_transform_interpolated().origin + Vector3.UP * 1.62

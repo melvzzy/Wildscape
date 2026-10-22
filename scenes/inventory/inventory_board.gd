@@ -26,14 +26,19 @@ func _draw() -> void:
 				var rect := Rect2(Vector2(stack.position) * cell, Vector2(footprint) * cell).grow(-4)
 				view.draw_item(self, rect, stack, index == view._selected)
 	else:
-		draw_style_box(view.make_style(Color("16171a"), Color("24262a")), Rect2(174, 140, 252, 336))
-		var shade := Color("393b3e")
+		# One central silhouette, framed by paired equipment columns. The drawn
+		# placeholder remains replaceable without changing slots or hit testing.
+		draw_circle(Vector2(300, 292), 192, Color("17191d"))
+		draw_line(Vector2(204, 552), Vector2(396, 552), Color("3a3d43"), view.grid_line_width(), true)
+		draw_set_transform(Vector2(-120, -120), 0, Vector2(1.4, 1.4))
+		var shade := Color("555a62")
 		draw_circle(Vector2(300, 165), 30, shade)
-		draw_style_box(view.make_style(shade, Color("515357")), Rect2(266, 205, 68, 125))
+		draw_style_box(view.make_style(shade, Color("636872")), Rect2(266, 205, 68, 125))
 		draw_line(Vector2(267, 218), Vector2(237, 325), shade, 22, true)
 		draw_line(Vector2(333, 218), Vector2(363, 325), shade, 22, true)
 		draw_line(Vector2(282, 320), Vector2(270, 450), shade, 25, true)
 		draw_line(Vector2(318, 320), Vector2(330, 450), shade, 25, true)
+		draw_set_transform(Vector2.ZERO)
 		for slot in range(6):
 			var rect: Rect2 = view.equipment_rect(slot)
 			draw_style_box(view.make_style(Color("111214"), Color("46484e")), rect)

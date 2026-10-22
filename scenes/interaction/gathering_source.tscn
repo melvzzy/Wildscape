@@ -1,0 +1,26 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/interaction/world_pickup.tscn" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="Material"]
+albedo_color = Color(0.32, 0.46, 0.43, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="Shape"]
+size = Vector3(1.05, 1.25, 1.05)
+
+[node name="GatheringSource" instance=ExtResource("1")]
+interaction_text = "Gather"
+remove_when_depleted = false
+
+[node name="Mesh" parent="." index="0"]
+position = Vector3(0, 0.625, 0)
+scale = Vector3(1.5, 2.5, 1.5)
+material_override = SubResource("Material")
+
+[node name="CollisionShape3D" parent="." index="1"]
+position = Vector3(0, 0.625, 0)
+shape = SubResource("Shape")
+
+[node name="StateLabel" parent="." index="2"]
+position = Vector3(0, 1.8, 0)
