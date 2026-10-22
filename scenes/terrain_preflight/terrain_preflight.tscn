@@ -1,0 +1,42 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1_player"]
+[ext_resource type="PackedScene" path="res://scenes/menus/game_menu.tscn" id="2_menu"]
+[ext_resource type="Terrain3DAssets" path="res://scenes/terrain_preflight/assets.tres" id="3_assets"]
+
+[sub_resource type="Terrain3DMaterial" id="TerrainMaterial"]
+world_background = 0
+show_checkered = false
+show_grey = true
+
+[sub_resource type="Environment" id="Environment"]
+background_mode = 1
+background_color = Color(0.28, 0.34, 0.4, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.8, 0.85, 0.9, 1)
+ambient_light_energy = 0.6
+reflected_light_source = 2
+
+[node name="TerrainPreflight" type="Node3D"]
+process_mode = 1
+
+[node name="Terrain3D" type="Terrain3D" parent="."]
+region_size = 128
+data_directory = "res://scenes/terrain_preflight/data"
+material = SubResource("TerrainMaterial")
+assets = ExtResource("3_assets")
+collision_layer = 1
+collision_mask = 2
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-45, -30, 0)
+shadow_enabled = true
+
+[node name="Player" parent="." instance=ExtResource("1_player")]
+position = Vector3(64, 1, 88)
+
+[node name="Menu" parent="." instance=ExtResource("2_menu")]
+gameplay_mode = true
