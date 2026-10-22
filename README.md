@@ -23,6 +23,7 @@ The gameplay scene composes two independent, reusable scenes:
 | Mouse | Look / orbit |
 | V | Switch TPS / FPS |
 | E | Interact with the targeted object within reach |
+| I | Open / close inventory |
 | Escape | Pause / resume gameplay |
 | R | Return to initial spawn and reset view |
 
@@ -30,6 +31,8 @@ Menus support mouse clicks and arrow keys / Enter. Pause offers Resume, Main Men
 and Quit. Losing application focus pauses gameplay and releases the cursor;
 returning focus keeps the pause menu open until explicitly resumed. Clicking a
 menu background never captures the cursor. Falling below -12 m returns to spawn.
+While inventory is open, Escape closes it directly into gameplay. The inventory
+is unavailable from the main menu or pause menu.
 
 ## Menu ownership, pause and display
 
@@ -37,7 +40,8 @@ menu background never captures the cursor. Falling below -12 m returns to spawn.
 `game_menu.tscn`, whose scene-local `menu_controller.gd` owns scene transitions,
 Escape, pause, focus loss and OS mouse capture. `menu_theme.tres` is a small shared
 theme with a visible keyboard focus border. There are no autoloads or global state
-managers. The menu changes between Play/Quit and Resume/Main Menu/Quit.
+managers. The menu changes between Play/Quit and Resume/Main Menu/Quit, and also
+hosts the inventory view. It owns all inventory mouse/pause transitions.
 
 The gameplay root explicitly uses Pausable; player, camera and interactions
 inherit it. Only the menu CanvasLayer uses Always, so it remains operable while
@@ -125,7 +129,60 @@ controls, disabling an object, or removing it. Holding E does not repeat actions
 the switch toggles state/color and its prompt, the beacon activates once and then
 disables interaction, and the token disappears without creating any item data.
 Each object owns its display material. Restart the scene to restore the beacon
-and token; R only resets the player. There is no inventory or saved world state.
+and token; R only resets the player. The test token does not add inventory items.
+Neither object states nor inventory contents are saved.
+
+## Items and slot inventory
+
+`data/items/item_definition.gd` defines static Godot Resources with a stable
+`item_id`, display name, optional description, maximum stack size, optional
+Texture2D icon and optional PackedScene world model. No final art is assigned.
+The three neutral resources are Test Alpha (stack 10), Test Beta (stack 5), and
+Test Gamma (stack 1). IDs are explicit lowercase ASCII identifiers beginning
+with a letter; limits must be between 1 and 1,000,000 and names nonblank.
+Keep IDs stable independently of display names and file renames.
+
+`ItemCatalog` is a locally constructed, validated lookup, not a global manager.
+A null/invalid definition or duplicate ID rejects the entire catalog. It takes
+snapshots of authoring definitions and returns copies, so callers cannot change
+live inventory rules by editing a Resource. Unknown lookups return null/0.
+
+`data/inventory/slot_inventory.gd` is a scene/UI-independent RefCounted model.
+The player owns a fresh instance, configured by exported capacity and item
+definitions. Its default 20 slots are always empty in normal gameplay. Slots are
+null or internal InventoryStack objects containing only an ID and quantity.
+`get_stack()` returns a detached snapshot, never a writable live stack.
+
+| Operation | Result / rules |
+| --- | --- |
+| `add(id, quantity)` | Actual count accepted; existing stacks fill first, then empty slots. Caller retains responsibility for `requested - accepted`. |
+| `remove(id, quantity)` | Actual count removed, potentially less than requested; exhausted slots become empty. |
+| `move_stack(from, to, quantity = -1)` | Actual count moved/merged; -1 means all available. Different target items are rejected, never overwritten or swapped. |
+| `split_stack(from, to, quantity)` | Exact split into an empty slot; true on success. Amount must be positive and smaller than the source. |
+| `transfer_to(destination, from, to, quantity = -1)` | Actual count transferred; destination capacity limits the amount, remainder stays at source. Both sides commit before signals. |
+| `get_capacity()`, `count_item(id)`, `get_definition(id)`, `get_catalog()` | Read/query API; catalog can be shared explicitly with another inventory. |
+
+Invalid indices/quantities, unknown IDs, full/incompatible targets and invalid
+inventories return 0/false without mutation or change notifications. Transfers
+require the same catalog instance, ensuring one authoritative ID/stack definition:
+create a compatible inventory with `SlotInventory.new(source.get_catalog(), 8)`.
+Successful operations emit `changed` once per affected inventory (only once for
+same-inventory moves); no notification is emitted halfway through a transfer.
+Capacity is chosen at construction; runtime resizing is not implemented.
+
+`scenes/inventory/inventory_view.tscn` observes and requests operations without
+owning item data. I opens the five-column grid and releases the cursor; gameplay,
+physics and E interactions pause. I, Escape or Close resumes through the existing
+controller. Click a stack then an empty/matching slot to move or merge it.
+Split Half followed by an empty slot creates a separate half stack (rounded down).
+Selecting the same slot or Deselect cancels selection. Focus loss replaces the
+inventory with the pause menu and preserves quantities. No drag-and-drop,
+equipment, dropping, world pickups or persistence are implemented.
+
+For populated examples, open **`tests/fixtures/inventory_demo.tscn` with F6**.
+Only this isolated fixture seeds 17 Alpha, 6 Beta and 1 Gamma and opens inventory.
+Its script is not referenced by production scenes. R does not reset quantities;
+restart the fixture to restore its example contents.
 
 ## Validation
 
@@ -138,12 +195,13 @@ The reusable PowerShell runner needs only Godot, with no external framework:
 ```
 
 If Godot is on PATH, `-GodotPath` can be omitted. The runner imports the project,
-runs the existing player and interaction suites plus `menu_flow_test.gd`, and
+runs player, interaction, menu flow, inventory model and inventory UI suites, and
 starts both the default main menu and the independent gameplay scene headlessly.
 `-Graphical` additionally checks normal fullscreen startup and runs the menu flow
 with rendered captures at 1920 x 1080, 1280 x 720, 1024 x 768 and 800 x 600.
 Two extra graphical assertions check borderless fullscreen and OS cursor mode. Window sizes
-are changed only in the test process; project defaults remain fullscreen.
+are changed only in the test process; project defaults remain fullscreen. The
+graphical inventory suite also captures empty/populated grids up to 1920 x 1080.
 
 Each invocation must exit with code 0, log no Godot script/scene errors, and
 (for suites) report a successful assertion count. The runner fails on logged
@@ -160,6 +218,11 @@ changes, actual Escape/Enter dispatch, pause/resume, player and rigid-body freez
 camera/input blocking, interactions, focus notifications, returning to main menu,
 independent gameplay startup and Quit. The same flow has 41 graphical checks,
 including borderless fullscreen and actual OS mouse capture.
+Inventory adds 49 pure model checks, including ID validation, invalid operations,
+stack limits, overflow, partial transfers, notifications and 250 deterministic
+mixed operations checking conservation. Inventory UI adds 30 headless checks
+(31 graphical) for empty ownership, controls, model binding, slot operations,
+focus/pause compatibility and layout at 1920 x 1080, 1280 x 720 and 800 x 600.
 
 Headless drivers cannot capture a physical cursor; regression tests use the
 player input gate separately from OS cursor state. Restricted execution may block
@@ -172,8 +235,8 @@ walk/sprint/jump through the zones, orbit close to walls, switch perspectives by
 walls and under geometry, check camera feel at different frame rates, and try
 real Alt-Tab/focus changes and menu navigation. Automated focus checks simulate
 Godot focus notifications; they do not constitute a physical Alt-Tab playtest.
-There are no animations or packaged-build/export checks yet. No inventory,
-crafting, gathering or other gameplay systems are implemented.
+There are no animations or packaged-build/export checks yet. Crafting, gathering,
+equipment, world pickups and other gameplay systems remain unimplemented.
 
 Verified on 2026-10-22 with Godot 4.7.2: project import, 120-iteration headless
 startup, 120-iteration graphical startup, and the physics integration suite all
@@ -195,3 +258,11 @@ graphical runner. All passed with no logged errors. Import, main-menu startup,
 independent gameplay startup and normal graphical startup also passed. Main and
 pause menu captures were visually inspected at the tested sizes; fullscreen was
 1920 x 1080 on the 1920 x 1080 monitor. No physics-backend change was made.
+
+Task 4 verification on 2026-10-22: all previous suites passed unchanged (23 player,
+26 interaction, 39 headless menu / 41 graphical menu). New suites passed 49 model
+checks and 30 headless / 31 graphical inventory UI checks: **239 total assertion
+executions** with the graphical runner, without logged errors. Import and normal
+startup checks passed. Empty and populated inventory captures were visually
+inspected. Real mouse/keyboard playtesting, unusual DPI/monitor setups and export
+validation remain manual follow-ups; no save/load behavior is claimed.

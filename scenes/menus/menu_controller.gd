@@ -14,6 +14,7 @@ const GAMEPLAY := "res://scenes/main.tscn"
 @onready var primary_button: Button = $Overlay/Center/Panel/Margin/Stack/Buttons/Primary
 @onready var main_menu_button: Button = $Overlay/Center/Panel/Margin/Stack/Buttons/MainMenu
 @onready var quit_button: Button = $Overlay/Center/Panel/Margin/Stack/Buttons/Quit
+@onready var inventory_view: Control = $InventoryView
 
 var player: CharacterBody3D
 var _transitioning: bool = false
@@ -25,9 +26,11 @@ func _ready() -> void:
 	primary_button.pressed.connect(_on_primary_pressed)
 	main_menu_button.pressed.connect(return_to_main_menu)
 	quit_button.pressed.connect(quit_game)
+	inventory_view.close_requested.connect(func() -> void: set_inventory_open(false))
 	main_menu_button.visible = gameplay_mode
 	if gameplay_mode:
 		player = get_parent().get_node("Player")
+		inventory_view.bind_inventory(player.inventory)
 		heading.text = "PAUSED"
 		subtitle.text = "The wild can wait."
 		primary_button.text = "Resume"
@@ -42,13 +45,35 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if gameplay_mode and event.is_action_pressed("pause") and not event.is_echo():
 		get_viewport().set_input_as_handled()
-		set_paused(not get_tree().paused)
+		if inventory_view.visible:
+			set_inventory_open(false)
+		else:
+			set_paused(not get_tree().paused)
+	elif gameplay_mode and event.is_action_pressed("inventory") and not event.is_echo():
+		get_viewport().set_input_as_handled()
+		if not overlay.visible:
+			set_inventory_open(not inventory_view.visible)
+
+
+func set_inventory_open(open: bool) -> void:
+	if not gameplay_mode or _transitioning or (open and overlay.visible):
+		return
+	if not open:
+		if inventory_view.visible:
+			set_paused(false)
+		return
+	_resume_version += 1
+	get_tree().paused = true
+	_apply_input(false)
+	inventory_view.open()
 
 
 func set_paused(paused: bool) -> void:
 	if not gameplay_mode or _transitioning:
 		return
 	_resume_version += 1
+	inventory_view.hide()
+	inventory_view.clear_selection()
 	get_tree().paused = paused
 	overlay.visible = paused
 	_apply_input(false)

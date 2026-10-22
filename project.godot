@@ -77,6 +77,11 @@ interact={
 "events": [Object(InputEventKey,"physical_keycode":69)]
 }
 
+inventory={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":73)]
+}
+
 [layer_names]
 
 3d_physics/layer_1="World"

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/items/item_definition.gd" id="1_definition"]
+
+[resource]
+script = ExtResource("1_definition")
+item_id = &"test_beta"
+display_name = "Test Beta"
+description = "Neutral stackable test item B."
+max_stack_size = 5

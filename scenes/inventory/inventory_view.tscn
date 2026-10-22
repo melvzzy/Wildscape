@@ -1,0 +1,105 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scenes/inventory/inventory_view.gd" id="1_view"]
+[ext_resource type="Theme" path="res://scenes/menus/menu_theme.tres" id="2_theme"]
+
+[node name="InventoryView" type="Control"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+script = ExtResource("1_view")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.025, 0.045, 0.05, 0.88)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+layout_mode = 2
+
+[node name="Margin" type="MarginContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 32
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 32
+
+[node name="Stack" type="VBoxContainer" parent="Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Heading" type="Label" parent="Center/Panel/Margin/Stack"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 38
+theme_override_colors/font_color = Color(0.93, 0.83, 0.56, 1)
+text = "INVENTORY"
+horizontal_alignment = 1
+
+[node name="Hint" type="Label" parent="Center/Panel/Margin/Stack"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Click a stack, then a slot. Split Half moves half to an empty slot."
+horizontal_alignment = 1
+
+[node name="Scroll" type="ScrollContainer" parent="Center/Panel/Margin/Stack"]
+custom_minimum_size = Vector2(800, 470)
+layout_mode = 2
+horizontal_scroll_mode = 0
+follow_focus = true
+
+[node name="Grid" type="GridContainer" parent="Center/Panel/Margin/Stack/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+columns = 5
+
+[node name="Status" type="Label" parent="Center/Panel/Margin/Stack"]
+custom_minimum_size = Vector2(800, 32)
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+text_overrun_behavior = 3
+
+[node name="Buttons" type="HBoxContainer" parent="Center/Panel/Margin/Stack"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Split" type="Button" parent="Center/Panel/Margin/Stack/Buttons"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Split Half"
+disabled = true
+
+[node name="Deselect" type="Button" parent="Center/Panel/Margin/Stack/Buttons"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Deselect"
+disabled = true
+
+[node name="Close" type="Button" parent="Center/Panel/Margin/Stack/Buttons"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Close (I / Esc)"

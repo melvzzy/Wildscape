@@ -44,10 +44,13 @@ Invoke-GodotCheck 'import' '--headless --import'
 Invoke-GodotCheck 'smoke' '--headless --script res://tests/player_smoke_test.gd' 'SMOKE'
 Invoke-GodotCheck 'interaction-smoke' '--headless --script res://tests/interaction_smoke_test.gd' 'INTERACTION'
 Invoke-GodotCheck 'menu-flow' '--headless --script res://tests/menu_flow_test.gd' 'FLOW'
+Invoke-GodotCheck 'inventory-model' '--headless --script res://tests/inventory_model_test.gd' 'INVENTORY MODEL'
+Invoke-GodotCheck 'inventory-ui' '--headless --script res://tests/inventory_ui_test.gd' 'INVENTORY UI'
 Invoke-GodotCheck 'startup-headless' '--headless --quit-after 120'
 Invoke-GodotCheck 'gameplay-headless' '--headless --scene res://scenes/main.tscn --quit-after 120'
 if ($Graphical) {
     Invoke-GodotCheck 'startup-graphics' '--quit-after 120'
     Invoke-GodotCheck 'menu-flow-graphics' '--script res://tests/menu_flow_test.gd -- --capture-ui' 'FLOW'
+    Invoke-GodotCheck 'inventory-ui-graphics' '--script res://tests/inventory_ui_test.gd -- --capture-ui' 'INVENTORY UI'
 }
 Write-Output "ALL CHECKS PASSED: $script:checkTotal assertions; logs in $logRoot"
