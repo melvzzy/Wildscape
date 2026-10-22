@@ -1,0 +1,30 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/interaction/tree_source.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/interaction/rock_source.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/interaction/world_pickup.tscn" id="3"]
+
+[node name="ResourceArea" type="Node3D"]
+
+[node name="Tree" parent="." instance=ExtResource("1")]
+position = Vector3(1.5, 0, 0)
+
+[node name="Rock" parent="." instance=ExtResource("2")]
+position = Vector3(4, 0, 0)
+
+[node name="AxePickup" parent="." instance=ExtResource("3")]
+position = Vector3(0, 0, 3)
+item_id = &"test_axe"
+quantity = 1
+
+[node name="PickaxePickup" parent="." instance=ExtResource("3")]
+position = Vector3(2.5, 0, 3)
+item_id = &"test_pickaxe"
+quantity = 1
+
+[node name="ZoneLabel" type="Label3D" parent="."]
+position = Vector3(2, 2.5, 3)
+text = "WOOD / STONE\nE pick up tools • Tab + C equip"
+font_size = 28
+pixel_size = 0.009
+outline_size = 8

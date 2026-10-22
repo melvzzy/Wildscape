@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/items/item_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+item_id = &"test_wood"
+display_name = "Wood"
+description = "Neutral gathering test resource."
+max_stack_size = 20
+grid_size = Vector2i(1, 2)

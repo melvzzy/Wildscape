@@ -107,6 +107,7 @@ The bounded 48 x 48 m playground contains:
 - 1.0, 1.78 and 3.0 m scale references, color-coded geometry and labels.
 - An interaction test area to the left of spawn: switch, one-shot beacon and test token.
 - A collection area to the right of spawn: three neutral pickups and a finite gathering source.
+- Just beyond it, two tool pickups, a primitive tree and rock for tool-gated gathering.
 
 ## Interaction foundation
 
@@ -142,8 +143,8 @@ Neither object states nor inventory contents are saved.
 `scenes/interaction/world_pickup.tscn` is a reusable World-layer StaticBody3D
 with neutral geometry, matching collision and a world-space label. Configure
 `item_id` and positive `quantity` in the Inspector. IDs resolve through the
-recipient's existing ItemCatalog; no separate lookup manager or item definitions
-are created. Player exposes its owned model through `get_inventory()`.
+recipient's existing ItemCatalog; no separate pickup catalog or runtime item
+definitions are created. Player exposes its owned model through `get_inventory()`.
 
 `world_item_source.gd` implements the existing WorldInteractable contract. The
 unchanged player interactor owns E, camera targeting, 2.5 m eye range and wall
@@ -165,7 +166,9 @@ is updated when add() returns, before the final interaction signal.
 `gathering_source.tscn` inherits the pickup scene and shares all insertion logic.
 It sets `remove_when_depleted = false`: one E requests all available units that
 fit. At zero it stays collidable, turns gray, reads DEPLETED and rejects further
-interaction. There are no tools, timers, respawns or harvesting rates.
+interaction. This original example remains tool-free and collects all fitting
+units per E. The tree/rock examples below add tool requirements and small amounts;
+there are no harvesting timers or respawns.
 
 Play/F6, then walk right from spawn toward **PICKUPS / FINITE GATHERING** at
 approximately x=6..13.5, z=15. Aim at a light box within reach and press E; Tab
@@ -175,13 +178,53 @@ player still starts empty. Re-enter gameplay to restore these test quantities;
 R resets the player only. The old switch, beacon and removal-only token are
 unchanged. No world dropping, saves, loot tables or Terrain3D test world is added.
 
+## Wood, stone and basic tools
+
+Four neutral definitions extend the player's existing catalog; inventory and
+equipment still start empty:
+
+| Stable ID | Name | Grid size | Stack limit | Equipment |
+| --- | --- | --- | --- | --- |
+| `test_wood` | Wood | 1x2 | 20 | None |
+| `test_stone` | Stone | 1x1 | 20 | None |
+| `test_axe` | Axe | 1x2 | 1 | Primary or Secondary |
+| `test_pickaxe` | Pickaxe | 2x2 | 1 | Primary or Secondary |
+
+`tree_source.tscn` and `rock_source.tscn` reuse WorldItemSource with only primitive
+meshes and solid materials. The tree starts with 15 wood and requests 3 per E;
+the rock starts with 18 stone and requests 2 per E. `required_tool_id` is checked
+against the actor's existing EquipmentInventory via `get_equipment()`, in either
+hand slot. A tool in the grid alone does not qualify. The actor and equipment
+are rechecked on activation; changing tools after aiming cannot bypass the check.
+Tools are never consumed or worn down.
+
+Missing tools leave the source targetable with a Requires equipped Axe/Pickaxe
+prompt, but `interact()` refuses all mutations. A positive
+`amount_per_interaction` caps the request at min(amount, remaining); zero retains
+the Task 5 all-at-once behavior, and negative values reject. Empty
+`required_tool_id` retains tool-free pickups. Unknown tool IDs reject safely.
+The same add() result, reentrancy lock, pause checks, partial-acceptance and
+depletion logic applies; there is no separate harvesting system.
+
+For manual testing, continue past the original pickup row to **WOOD / STONE**:
+tools are at approximately (6,12) and (8.5,12), tree at (7.5,9), rock at (10,9)
+in x/z meters. Use E on the neutral tool boxes. Open Tab and C together and drag
+Axe/Pickaxe to Primary/Secondary. Escape closes the windows. Aim at the tree trunk
+or rock within reach, press E repeatedly, and inspect the resulting wood/stone
+stacks with Tab. Unequip or use the wrong tool to check rejection. Each press
+requests a bounded amount; holding E does not auto-repeat. At zero, the source
+stays collidable and reads DEPLETED. No skills, durability, animations, crafting,
+saves or resource regeneration are implemented.
+
 ## Items and grid inventory
 
 `data/items/item_definition.gd` defines static Godot Resources with a stable
 `item_id`, display name, optional description, maximum stack size, optional
 Texture2D icon and optional PackedScene world model. No final art is assigned.
-The four neutral resources are Test Alpha (1x1, stack 10), Test Beta (1x2,
+The original four neutral resources are Test Alpha (1x1, stack 10), Test Beta (1x2,
 stack 5), Test Gamma (2x1, stack 1), and Test Delta (2x3, stack 1).
+The four provisional resource/tool definitions above use the same fields and
+validation; no tool attributes, icons or final models are added.
 `grid_size` stores the static footprint and `equipment_slots` the six-bit
 compatibility mask; neither field is mutable inventory state. IDs are explicit lowercase ASCII identifiers beginning
 with a letter; limits must be between 1 and 1,000,000 and names nonblank.
@@ -242,7 +285,8 @@ Player also owns `data/inventory/equipment_inventory.gd`, using the same catalog
 `ItemDefinition.EquipmentSlot` defines Head, Chest, Legs, Feet, Primary, Secondary
 (indices 0..5). Static compatibility flags are data only; neutral Beta supports
 Head/Feet, Gamma Primary/Secondary, and Delta Chest/Legs. These are test assignments,
-not finalized equipment types. Each equipment slot holds exactly one unit.
+not finalized equipment types. Axe and Pickaxe also support both hand slots.
+Each equipment slot holds exactly one unit.
 
 `is_compatible()`/`can_equip()` validate placement; `equip_from(grid, anchor, slot)`
 takes one quantity from the grid. Occupied/incompatible gear slots reject without
@@ -348,10 +392,13 @@ windows, model binding, multi-cell drag/drop, rotation, partial merges, splittin
 equipment, stale sources, cancellation, focus/pause compatibility and layout at
 1920 x 1080, 1280 x 720 and 800 x 600: currently 65 headless / 66 graphical
 assertions. Counts and executed results are recorded below.
-World collection adds 46 checks covering partial/full insertion, footprints and
+World collection has 92 checks covering partial/full insertion, footprints and
 rotated merges, invalid IDs/quantities/receivers, depletion, signal reentrancy,
 180 deterministic conservation steps across two inventories, and actual FPS/TPS
 targeting, E dispatch, range, walls, pause, UI ownership and original interactables.
+The tool checks cover correct/wrong/carried/unequipped tools in both hand slots,
+bounded harvests, last remainders, wood/stone conservation, reentrant callbacks,
+invalid requirements, actual tool pickup and drag-to-equip, and FPS/TPS harvesting.
 
 Headless drivers cannot capture a physical cursor; regression tests use the
 player input gate separately from OS cursor state. Restricted execution may block
@@ -364,9 +411,9 @@ walk/sprint/jump through the zones, orbit close to walls, switch perspectives by
 walls and under geometry, check camera feel at different frame rates, and try
 real Alt-Tab/focus changes and menu navigation. Automated focus checks simulate
 Godot focus notifications; they do not constitute a physical Alt-Tab playtest.
-There are no animations or packaged-build/export checks yet. Crafting, gathering,
-equipment effects and other gameplay systems remain unimplemented. World pickups
-and the finite gathering example are implemented as described above.
+There are no animations or packaged-build/export checks yet. Crafting, advanced
+equipment effects and other gameplay systems remain unimplemented. World pickups,
+finite gathering and basic equipped-tool requirements are implemented as above.
 
 Verified on 2026-10-22 with Godot 4.7.2: project import, 120-iteration headless
 startup, 120-iteration graphical startup, and the physics integration suite all
@@ -484,3 +531,26 @@ Resources offer all units that fit per E and do not regenerate; restarting a
 gameplay session restores the authored world quantities. No new plugins, UI
 redesign, inventory data-model changes, final assets, Terrain3D world, commits,
 pushes or merges were introduced. Pre-existing local UI/plugin changes remain.
+
+Task 6 verification on 2026-10-22: Godot 4.7.2 full graphical runner passed
+**559 assertion executions**: the unchanged 375 non-collection executions plus
+92 headless and 92 graphical world-collection checks. All original Task 5 checks
+remain in the suite. Import, bounded headless main-menu/direct-gameplay starts
+and graphical startup exited with code 0 and no logged errors. Collection now
+also covers both hand slots, incorrect/carried/removed tools, invalid harvest
+configuration, limited/partial/full acceptance, automatic wood rotation, finite
+remainders, callback reentrancy, actual tool pickups, mouse drag-to-equip and
+real FPS/TPS E harvesting. Quantities and reusable tools are conserved.
+
+Rendered primitive resources, missing-tool feedback, equipped tools, wood/stone
+prompts, depletion and collected inventory were visually inspected in
+`.godot/collection-resources-playground.png`, `collection-tool-required.png`,
+`collection-equipped-tools.png`, `collection-wood-prompt.png`,
+`collection-stone-prompt.png`, `collection-resources-depleted.png` and
+`collection-resource-inventory.png`. Visual inspection caught a tree touching an
+old obstacle; only the new tree was moved, and a native overlap check now verifies
+both resource colliders. The complete runner passed again after that correction.
+No UI redesign, inventory/equipment data-model changes, plugins, tool art,
+textures, Terrain3D changes, commits, pushes or merges were introduced. Physical
+mouse/keyboard playtesting and export checks remain manual; this is finite,
+singleplayer test gathering without regeneration, persistence or durability.

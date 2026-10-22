@@ -3,6 +3,16 @@ extends SceneTree
 
 class Collector extends Node3D:
 	var inventory: SlotInventory
+	var equipment: EquipmentInventory
+
+	func get_inventory() -> SlotInventory:
+		return inventory
+
+	func get_equipment() -> EquipmentInventory:
+		return equipment
+
+class InventoryOnlyCollector extends Node3D:
+	var inventory: SlotInventory
 
 	func get_inventory() -> SlotInventory:
 		return inventory
@@ -67,7 +77,7 @@ func _models() -> void:
 	root.add_child(fixture)
 	actor = Collector.new()
 	fixture.add_child(actor)
-	catalog = ItemCatalog.new([load("res://data/items/test_alpha.tres"), load("res://data/items/test_beta.tres"), load("res://data/items/test_gamma.tres"), load("res://data/items/test_delta.tres")])
+	catalog = ItemCatalog.new([load("res://data/items/test_alpha.tres"), load("res://data/items/test_beta.tres"), load("res://data/items/test_gamma.tres"), load("res://data/items/test_delta.tres"), load("res://data/items/test_wood.tres"), load("res://data/items/test_stone.tres"), load("res://data/items/test_axe.tres"), load("res://data/items/test_pickaxe.tres")])
 	actor.inventory = SlotInventory.new(catalog)
 	var source := _source(&"test_alpha", 17)
 	_check(source.can_interact(actor) and "Test Alpha" in source.get_prompt(), "source resolves stable ID and display name through recipient catalog")
@@ -199,8 +209,130 @@ func _models() -> void:
 		for entry in sources:
 			conserved = conserved and entry.quantity >= 0 and entry.quantity + actor.inventory.count_item(entry.item_id) + second.inventory.count_item(entry.item_id) + taken[entry.item_id] == initial[entry.item_id]
 	_check(conserved, "180 deterministic mixed collection/removal attempts conserve every ID across two inventories and world supplies")
+	_resource_models()
 	fixture.queue_free()
 	await _frames()
+
+
+func _anchor(inventory: SlotInventory, id: StringName) -> int:
+	for index in range(inventory.get_capacity()):
+		var stack := inventory.get_stack(index)
+		if stack != null and stack.item_id == id:
+			return index
+	return -1
+
+
+func _resource(scene: String) -> WorldItemSource:
+	var source: WorldItemSource = load("res://scenes/interaction/" + scene + "_source.tscn").instantiate()
+	source.position = Vector3(90, 0, fixture.get_child_count() * 2)
+	fixture.add_child(source)
+	return source
+
+
+func _resource_models() -> void:
+	actor.inventory = SlotInventory.new(catalog)
+	actor.equipment = EquipmentInventory.new(catalog)
+	var primary := ItemDefinition.EquipmentSlot.PRIMARY
+	var secondary := ItemDefinition.EquipmentSlot.SECONDARY
+	_check(catalog.is_valid() and catalog.get_stack_limit(&"test_wood") == 20 and catalog.get_stack_limit(&"test_stone") == 20 and catalog.get_stack_limit(&"test_axe") == 1 and catalog.get_item_size(&"test_pickaxe") == Vector2i(2, 2), "new static resources and tools validate with stable IDs, stack limits and footprints")
+	_check(catalog.can_equip(&"test_axe", primary) and catalog.can_equip(&"test_axe", secondary) and catalog.can_equip(&"test_pickaxe", primary) and catalog.can_equip(&"test_pickaxe", secondary) and not catalog.can_equip(&"test_wood", primary), "tools support both existing hand slots; resources are not equipment")
+	var tree := _resource("tree")
+	var rock := _resource("rock")
+	_check(tree.can_interact(actor) and "Requires equipped Axe" in tree.get_prompt(), "missing tool leaves resource targetable with explanatory prompt")
+	tree.interact(actor)
+	_check(tree.quantity == 15 and actor.inventory.count_item(&"test_wood") == 0, "no equipped tool prevents wood collection without quantity changes")
+	actor.inventory.add(&"test_axe", 1)
+	actor.inventory.add(&"test_pickaxe", 1)
+	tree.interact(actor)
+	_check(tree.quantity == 15 and actor.inventory.count_item(&"test_wood") == 0, "carrying a tool in the grid does not satisfy equipped requirement")
+	_check(not actor.equipment.equip_from(actor.inventory, _anchor(actor.inventory, &"test_axe"), ItemDefinition.EquipmentSlot.HEAD), "axe cannot be equipped in an armor slot")
+	_check(actor.equipment.equip_from(actor.inventory, _anchor(actor.inventory, &"test_pickaxe"), primary), "pickaxe equips through existing equipment operation")
+	tree.interact(actor)
+	_check(tree.quantity == 15 and actor.inventory.count_item(&"test_wood") == 0, "equipped pickaxe cannot harvest a tree")
+	rock.interact(actor)
+	_check(rock.quantity == 16 and actor.inventory.count_item(&"test_stone") == 2 and "×2" in rock.get_prompt(), "equipped pickaxe gathers configured two stone per interaction")
+	_check(actor.equipment.equip_from(actor.inventory, _anchor(actor.inventory, &"test_axe"), secondary), "axe equips in Secondary while pickaxe occupies Primary")
+	tree.interact(actor)
+	_check(tree.quantity == 12 and actor.inventory.count_item(&"test_wood") == 3 and "12 left" in tree.get_prompt(), "Secondary axe gathers three wood and prompt shows remaining supply")
+	_check(actor.equipment.unequip_to(actor.inventory, secondary), "tool can be unequipped through the existing model")
+	tree.interact(actor)
+	_check(tree.quantity == 12 and actor.inventory.count_item(&"test_wood") == 3 and "Requires" in tree.get_prompt(), "tool removal is revalidated at collection time")
+	actor.equipment.unequip_to(actor.inventory, primary)
+	actor.equipment.equip_from(actor.inventory, _anchor(actor.inventory, &"test_axe"), primary)
+	tree.interact(actor)
+	_check(tree.quantity == 9 and actor.inventory.count_item(&"test_wood") == 6, "Primary axe also satisfies gathering requirement")
+	rock.interact(actor)
+	_check(rock.quantity == 16 and actor.inventory.count_item(&"test_stone") == 2, "axe cannot harvest stone")
+	actor.equipment.equip_from(actor.inventory, _anchor(actor.inventory, &"test_pickaxe"), secondary)
+	rock.interact(actor)
+	_check(rock.quantity == 14 and actor.inventory.count_item(&"test_stone") == 4, "Secondary pickaxe also satisfies gathering requirement")
+	_check(actor.equipment.count_item(&"test_axe") == 1 and actor.equipment.count_item(&"test_pickaxe") == 1, "gathering does not consume or duplicate tools")
+	var finite := _resource("tree")
+	finite.quantity = 8
+	var before := actor.inventory.count_item(&"test_wood")
+	var increments: Array[int] = []
+	for step in range(3):
+		var old := actor.inventory.count_item(&"test_wood")
+		finite.interact(actor)
+		increments.append(actor.inventory.count_item(&"test_wood") - old)
+	_check(increments == [3, 3, 2] and finite.quantity == 0 and not finite.interaction_enabled and finite.state_label.text == "DEPLETED", "last harvest takes only remaining units and depletes finite tree")
+	finite.interact(actor)
+	_check(actor.inventory.count_item(&"test_wood") - before == 8 and finite.quantity == 0, "limited harvesting and repeated depleted calls conserve the original eight units")
+	actor.inventory = SlotInventory.new(catalog, 1, 2)
+	actor.inventory.add(&"test_wood", 19)
+	finite = _resource("tree")
+	finite.quantity = 9
+	finite.interact(actor)
+	_check(finite.quantity == 8 and actor.inventory.count_item(&"test_wood") == 20, "limited harvest subtracts only one accepted unit when stack space is one")
+	finite.interact(actor)
+	_check(finite.quantity == 8 and actor.inventory.count_item(&"test_wood") == 20 and "No room" in finite.get_prompt(), "full multi-cell inventory safely refuses gathering")
+	actor.inventory.remove(&"test_wood", 2)
+	finite.interact(actor)
+	_check(finite.quantity == 6 and actor.inventory.count_item(&"test_wood") == 20 and finite.quantity + actor.inventory.count_item(&"test_wood") + 2 == 28, "partial stack refill preserves exact inventory/world/removed conservation")
+	actor.inventory = SlotInventory.new(catalog, 1, 1)
+	actor.inventory.add(&"test_stone", 20)
+	finite = _resource("rock")
+	finite.quantity = 5
+	finite.interact(actor)
+	_check(finite.quantity == 5 and actor.inventory.count_item(&"test_stone") == 20, "full stone inventory leaves rock unchanged")
+	actor.inventory.remove(&"test_stone", 1)
+	finite.interact(actor)
+	_check(finite.quantity == 4 and actor.inventory.count_item(&"test_stone") == 20, "partial stone acceptance subtracts only the single accepted unit")
+	actor.inventory = SlotInventory.new(catalog, 3, 1)
+	actor.inventory.add_at(&"test_stone", 20, Vector2i(1, 0))
+	finite = _resource("tree")
+	finite.interact(actor)
+	_check(finite.quantity == 15 and actor.inventory.count_item(&"test_wood") == 0, "fragmented cells reject wood footprint even when equipped correctly")
+	actor.inventory = SlotInventory.new(catalog, 2, 1)
+	finite.interact(actor)
+	_check(finite.quantity == 12 and actor.inventory.get_stack(0).rotated and actor.inventory.get_anchor_at(1) == 0, "tool-gated wood uses existing automatic rotation into a 2x1 grid")
+	actor.inventory = SlotInventory.new(catalog)
+	finite = _resource("tree")
+	finite.amount_per_interaction = -1
+	finite.interact(actor)
+	_check(not finite.can_interact(actor) and finite.quantity == 15 and actor.inventory.count_item(&"test_wood") == 0, "negative harvest amount rejects without changes")
+	finite.amount_per_interaction = 3
+	finite.required_tool_id = &"unknown_tool"
+	finite.interact(actor)
+	_check(not finite.can_interact(actor) and finite.quantity == 15, "unknown required tool ID rejects safely")
+	var no_gear := InventoryOnlyCollector.new()
+	no_gear.inventory = SlotInventory.new(catalog)
+	fixture.add_child(no_gear)
+	finite.required_tool_id = &"test_axe"
+	finite.interact(no_gear)
+	_check(finite.quantity == 15 and no_gear.inventory.count_item(&"test_wood") == 0, "receiver without equipment cannot bypass tool requirement")
+	var pickup := _source(&"test_wood", 7)
+	pickup.interact(no_gear)
+	_check(pickup.quantity == 0 and no_gear.inventory.count_item(&"test_wood") == 7, "ordinary pickups remain unlimited per E and need no equipment")
+	finite = _resource("tree")
+	var locked := finite
+	var callback := func() -> void: locked.interact(actor)
+	var completed := func(_actor: Node3D) -> void: locked.interact(actor)
+	actor.inventory.changed.connect(callback)
+	finite.interacted.connect(completed)
+	finite.interact(actor)
+	_check(finite.quantity == 12 and actor.inventory.count_item(&"test_wood") == 3, "both inventory and interaction observers cannot multiply a per-hit harvest")
+	actor.inventory.changed.disconnect(callback)
 
 
 func _place(point: Vector3, first_person: bool) -> void:
@@ -309,6 +441,123 @@ func _integration() -> void:
 	menu.set_inventory_open(false)
 	await _frames()
 	_check(not paused and player.controls_active and current_scene.get_node("Playground/InteractionArea/Switch").interaction_enabled, "inventory resumes normally and original playground interactables remain intact")
+	await _resource_integration()
+
+
+func _equip_drag(view: Control, id: StringName, slot: int) -> void:
+	var index := _anchor(player.inventory, id)
+	var from: Vector2 = view.grid.global_position + (Vector2(player.inventory.index_to_cell(index)) + Vector2(0.5, 0.5)) * view.cell_size()
+	var to: Vector2 = view.character_board.global_position + view.equipment_rect(slot).get_center()
+	var press := InputEventMouseButton.new()
+	press.position = from
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	root.push_input(press, true)
+	var motion := InputEventMouseMotion.new()
+	motion.position = to
+	root.push_input(motion, true)
+	var release := InputEventMouseButton.new()
+	release.position = to
+	release.button_index = MOUSE_BUTTON_LEFT
+	root.push_input(release, true)
+	await _frames()
+
+
+func _resource_integration() -> void:
+	var area: Node3D = current_scene.get_node("Playground/ResourceArea")
+	var tree: WorldItemSource = area.get_node("Tree")
+	var rock: WorldItemSource = area.get_node("Rock")
+	var menu: Node = current_scene.get_node("Menu")
+	var clear_placement := true
+	for source in [tree, rock]:
+		var shape_node: CollisionShape3D = source.get_node("CollisionShape3D")
+		var query := PhysicsShapeQueryParameters3D.new()
+		query.shape = shape_node.shape
+		query.transform = shape_node.global_transform
+		query.collision_mask = 1
+		query.exclude = [source.get_rid(), current_scene.get_node("Playground/Ground").get_rid()]
+		clear_placement = clear_placement and source.get_world_3d().direct_space_state.intersect_shape(query).is_empty()
+	_check(clear_placement, "resource colliders do not overlap existing obstacles or each other")
+	_check(player.inventory.count_item(&"test_axe") == 0 and player.inventory.count_item(&"test_pickaxe") == 0 and player.equipment.count_item(&"test_axe") == 0, "normal player receives no automatic tools")
+	if "--capture-world" in OS.get_cmdline_user_args():
+		var overview := Camera3D.new()
+		current_scene.add_child(overview)
+		overview.position = Vector3(11, 6, 19)
+		overview.look_at(Vector3(8, 1.2, 10))
+		overview.current = true
+		await _frames()
+		await _capture("resources-playground")
+		player.camera.current = true
+		overview.queue_free()
+	await _place(tree.global_position + Vector3(0, 0.05, 1.8), true)
+	await _aim(tree.global_position + Vector3.UP * 0.9)
+	await _press_e()
+	_check(interactor.target == tree and "Requires equipped Axe" in interactor.prompt.text and tree.quantity == 15 and player.inventory.count_item(&"test_wood") == 0, "real E targeting shows missing axe and cannot gather without it")
+	await _capture("tool-required")
+	await _place(Vector3(6, 0.05, 13.6), true)
+	await _aim(area.get_node("AxePickup").global_position + Vector3.UP * 0.25)
+	await _press_e()
+	_check(player.inventory.count_item(&"test_axe") == 1 and not area.has_node("AxePickup"), "test axe is obtained through ordinary E pickup")
+	await _place(Vector3(8.5, 0.05, 13.6), true)
+	await _aim(area.get_node("PickaxePickup").global_position + Vector3.UP * 0.25)
+	await _press_e()
+	_check(player.inventory.count_item(&"test_pickaxe") == 1 and not area.has_node("PickaxePickup"), "test pickaxe is obtained through ordinary E pickup")
+	menu.set_inventory_open(true)
+	menu.set_character_open(true)
+	await _frames()
+	await _equip_drag(menu.inventory_view, &"test_axe", ItemDefinition.EquipmentSlot.PRIMARY)
+	await _equip_drag(menu.inventory_view, &"test_pickaxe", ItemDefinition.EquipmentSlot.SECONDARY)
+	_check(player.equipment.count_item(&"test_axe") == 1 and player.equipment.count_item(&"test_pickaxe") == 1 and player.inventory.count_item(&"test_axe") == 0 and player.inventory.count_item(&"test_pickaxe") == 0, "actual inventory-to-character drag equips both picked-up tools without duplication")
+	await _capture("equipped-tools")
+	menu.set_inventory_open(false)
+	menu.set_character_open(false)
+	await _frames()
+	await _place(tree.global_position + Vector3(0, 0.05, 1.8), true)
+	await _aim(tree.global_position + Vector3.UP * 0.9)
+	await _press_e()
+	_check(tree.quantity == 12 and player.inventory.count_item(&"test_wood") == 3 and "3" in interactor.prompt.text, "FPS E gathers configured wood amount with equipped axe")
+	await _capture("wood-prompt")
+	Input.action_press("interact")
+	await _frames(15)
+	Input.action_release("interact")
+	await _frames(2)
+	_check(tree.quantity == 9 and player.inventory.count_item(&"test_wood") == 6, "holding E triggers only one additional per-hit harvest")
+	player.equipment.unequip_to(player.inventory, ItemDefinition.EquipmentSlot.PRIMARY)
+	interactor.try_interact()
+	_check(tree.quantity == 9 and player.inventory.count_item(&"test_wood") == 6 and "Requires" in interactor.prompt.text, "stale aimed target rechecks tool removal before collection")
+	player.equipment.equip_from(player.inventory, _anchor(player.inventory, &"test_axe"), ItemDefinition.EquipmentSlot.PRIMARY)
+	await _place(Vector3(10, 0.05, 10.8), false)
+	await _aim(rock.global_position + Vector3.UP * 0.55)
+	await _press_e()
+	_check(rock.quantity == 16 and player.inventory.count_item(&"test_stone") == 2 and interactor.target == rock, "TPS E gathers stone with equipped Secondary pickaxe")
+	await _capture("stone-prompt")
+	menu.set_paused(true)
+	rock.interact(player)
+	await _press_e()
+	_check(rock.quantity == 16 and player.inventory.count_item(&"test_stone") == 2, "pause blocks limited tool-based harvesting")
+	menu.set_paused(false)
+	await _frames()
+	await _place(tree.global_position + Vector3(0, 0.05, 1.8), true)
+	await _aim(tree.global_position + Vector3.UP * 0.9)
+	for hit in range(3):
+		await _press_e()
+	_check(tree.quantity == 0 and not tree.interaction_enabled and tree.state_label.text == "DEPLETED" and player.inventory.count_item(&"test_wood") == 15, "repeated real E presses exhaust tree with exact wood conservation")
+	await _place(Vector3(10, 0.05, 10.8), false)
+	await _aim(rock.global_position + Vector3.UP * 0.55)
+	for hit in range(8):
+		await _press_e()
+	_check(rock.quantity == 0 and not rock.interaction_enabled and player.inventory.count_item(&"test_stone") == 18, "repeated real E presses exhaust rock with exact stone conservation")
+	await _press_e()
+	_check(player.inventory.count_item(&"test_stone") == 18 and player.equipment.count_item(&"test_axe") == 1 and player.equipment.count_item(&"test_pickaxe") == 1, "depleted resource and repeated E preserve both resources and reusable tools")
+	await _capture("resources-depleted")
+	menu.set_inventory_open(true)
+	menu.set_character_open(true)
+	await _frames()
+	await _capture("resource-inventory")
+	menu.set_inventory_open(false)
+	menu.set_character_open(false)
+	await _frames()
+	_check(not paused and player.controls_active, "closing resource inventory and character windows restores gameplay normally")
 
 
 func _run() -> void:
