@@ -1,7 +1,8 @@
 param(
     [string]$GodotPath = 'godot',
     [switch]$Graphical,
-    [switch]$TerrainOnly
+    [switch]$TerrainOnly,
+    [switch]$FocusedViews
 )
 
 $ErrorActionPreference = 'Stop'
@@ -49,8 +50,13 @@ if ($TerrainOnly) {
     Invoke-GodotCheck 'gameplay-headless' '--headless --scene res://scenes/main.tscn --quit-after 120'
     if ($Graphical) {
         Invoke-GodotCheck 'startup-graphics' '--quit-after 120'
-        Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd -- --capture-island' 'ISLAND'
-        Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=after'
+        if ($FocusedViews) {
+            Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd' 'ISLAND'
+            Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=task78-after --focused'
+        } else {
+            Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd -- --capture-island' 'ISLAND'
+            Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=after'
+        }
     }
     Write-Output "TERRAIN CHECKS PASSED: $script:checkTotal assertions; logs in $logRoot"
     return

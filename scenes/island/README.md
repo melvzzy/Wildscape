@@ -1,4 +1,75 @@
-# Island foundation — Task 7.7
+# Island foundation — Task 7.8
+
+## Task 7.8: selective cohesion pass
+
+The saved Task 7.7 region was edited directly, **without regenerating the island**.
+`backups/task_7_7/` contains its native data, scene, generator and documentation;
+the native SHA-256 is
+`7b94d6db69e2b98bbfd15b0606906dc723a1a2748c8ed3ceeaa55d6da55a6b68`.
+
+Nine smoothly bounded elliptical transition areas receive modest corrections:
+the west/east lake-facing mountain feet, both southern mountain approaches,
+northwestern/northeastern upland shoulders, southwestern meadows, southern ridge
+transition and southeastern hills. A sparse Gaussian neighborhood reduces local
+curvature without imposing flat pads, terraces, repeated bumps or new noise.
+Corrections taper by distance and elevation. No island-wide smoothing is applied.
+
+135,537 cells change by more than 0.1 mm (about 13% of the region); the largest
+adjustment is 0.876 m. Aggregate squared slope across edited cells falls from
+22,306.48 to 22,074.02, about 1%. This is a restrained transition correction,
+not a claim that steep mountains became building ground. Existing calm lowlands
+and clearings remain available for future assets; no placement system is added.
+
+All original heights at or below 8 m and at or above 58 m remain exactly unchanged.
+This protects the sea/lake waterlines, low beaches, lake island and high crests.
+Control and color maps are byte-identical. Lake dimensions, water planes, camera,
+spawn, lighting, materials, renderer and gameplay code are unchanged.
+Dry area remains 588,170 m²; area below 20° remains 331,700 m². The connected
+4 m route grid measures 488,672 m², versus 488,752 m² previously; this tiny sampling
+change does not remove any required landmark connection or physical walking route.
+
+The existing `refine_island.gd` entry point is now a guarded native-data editor:
+
+```powershell
+& '<Godot executable>' --headless --path . --script res://tools/refine_island.gd -- --polish-island-v8
+```
+
+It requires both active data and the Task 7.7 backup to match the recorded hash.
+It refuses repeat execution against the refined result or later hand sculpting.
+The full V7 generator is retained for historical restoration, but now refuses
+active data newer than Task 7.6. Normal gameplay never runs either authoring tool.
+
+Focused verification uses:
+
+```powershell
+./tests/run_tests.ps1 -GodotPath '<Godot executable>' -TerrainOnly -Graphical -FocusedViews
+```
+
+This retains import, terrain assertions, preflight, bounded startup and graphical
+checks, while replacing the full screenshot batch with six views: whole-island
+overhead, both mountain feet, southern transition and two grounded FPS poses.
+Existing collision/route/waterline/persistence limits remain unchanged. Additional
+assertions check bounded local edits, protected heights, unchanged paint maps and
+reduced slope energy. No inventory/gathering/equipment suites are repeated.
+
+Actual result: **79 assertions passed** (34 headless island, 34 graphical island,
+11 preflight), plus import, bounded menu/playground startup and six focused
+renders. The first graphical attempt entered pause near the beach walk and then
+failed the dependent menu checks, consistent with external focus loss. Only that
+graphical run and the pending six-view survey were repeated; both then passed.
+The test logs future focus loss without suppressing native pause behavior.
+All six final images were reviewed in `.godot/island_survey/task78-after/`.
+The original 2.5 m adjacent-height and all route/physics tolerances remain intact.
+
+A fixed-camera rendering diagnosis compared original shading, disabled native
+texture projection and color-based ambient light. Neither alternative removes
+the dark steep-face patches; no diagnostic setting was saved. Existing normal
+texture values were also checked. The prior unshaded comparison and native
+height/collision checks distinguish these lighting-dependent surfaces from holes.
+The remaining strong shading contrast and 1 m/native LOD edges are not hidden by
+new materials, renderer changes or broad terrain smoothing.
+
+The following sections document the preserved Task 7.7 baseline.
 
 Godot 4.7.2 / Terrain3D 1.0.2, Compatibility renderer, GodotPhysics3D.
 F5 → Play loads `island.tscn`; F6 runs it directly. The original playground
@@ -66,16 +137,15 @@ scene, generator and documentation. Native SHA-256:
 `6e384434cfcb55b0d22e4443734e118380cfe48b434742de4323d8fa13a38f9d`.
 Earlier backups remain intact. Restore a matching scene with its native data.
 
-There is one active offline implementation, `tools/build_island.gd`.
-The retired `refine_island.gd` and older authoring flags reject execution.
-Back up later hand edits before deliberately replacing heights and paint:
+Historical Task 7.7 full-generation command (not used for Task 7.8):
 
 ```powershell
 & '<Godot executable>' --headless --path . --script res://tools/build_island.gd -- --write-island-v7
 ```
 
-This requires the hash-verified Task 7.6 backup and can take several minutes.
-It replaces later editor sculpting; it is never attached to the gameplay scene.
+This now requires both active Task 7.6 data and its hash-verified backup, protecting
+all later edits. For local Task 7.8 authoring use the guarded refinement described
+above. Neither tool is attached to the gameplay scene.
 
 ## Focused verification
 

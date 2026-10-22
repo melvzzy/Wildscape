@@ -26,6 +26,10 @@ var lake_distances := PackedFloat32Array()
 
 
 func _initialize() -> void:
+	if FileAccess.get_sha256(DIRECTORY + "/data/terrain3d_00_00.res") != BACKUP_SHA256:
+		push_error("Full-island V7 rebuild refused: active data contains later terrain edits. Use the guarded local refine_island.gd workflow instead.")
+		quit(1)
+		return
 	if not "--write-island-v7" in OS.get_cmdline_user_args() or FileAccess.get_sha256(BACKUP) != BACKUP_SHA256:
 		push_error("Rebuild requires -- --write-island-v7 and the unchanged Task 7.6 native backup. Later sculpting WILL be replaced.")
 		quit(1)

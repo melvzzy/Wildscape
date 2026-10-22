@@ -108,6 +108,19 @@ func _run() -> void:
 	caption.add_theme_font_size_override("font_size", 28)
 	caption.add_theme_color_override("font_outline_color", Color.BLACK)
 	caption.add_theme_constant_override("outline_size", 8)
+	if "--focused" in OS.get_cmdline_user_args():
+		await _capture("00_entire_island", Vector3(512, 1100, 512), Vector3(512, 0, 512), 960)
+		await _capture("west_foothills", Vector3(470, 115, 555), Vector3(310, 38, 360))
+		await _capture("east_foothills", Vector3(550, 115, 650), Vector3(720, 35, 500))
+		await _capture("south_transition", Vector3(450, 85, 880), Vector3(340, 24, 715))
+		await _player_view("player_lake_shore", Vector2(500, 574), Vector3(538, 5, 488))
+		await _player_view("player_northeast", Vector2(650, 260), Vector3(710, 40, 400))
+		print("ISLAND SURVEY: %d focused rendered views saved to %s" % [captures, directory])
+		world.queue_free()
+		layer.queue_free()
+		await process_frame
+		quit()
+		return
 	await _capture("00_entire_island", Vector3(512, 1100, 512), Vector3(512, 0, 512), 960)
 	await _capture("01_north", Vector3(500, 460, -270), Vector3(500, 18, 490))
 	await _capture("02_east", Vector3(1270, 460, 500), Vector3(500, 18, 490))

@@ -8,6 +8,8 @@ var elapsed := 0.0
 
 
 func _initialize() -> void:
+	if DisplayServer.get_name() != "headless":
+		root.focus_exited.connect(func() -> void: print("TEST WINDOW: focus lost; native menu may pause the graphical run"))
 	_run.call_deferred()
 
 
@@ -51,6 +53,13 @@ func _slope(image: Image, x: int, z: int) -> float:
 
 func _check_landscape(terrain: Terrain3D) -> void:
 	var height: Image = terrain.data.get_region(Vector2i.ZERO).get_height_map()
+	var previous: Terrain3DRegion = load("res://scenes/island/backups/task_7_7/terrain3d_00_00.res")
+	var before: Image = previous.get_height_map()
+	var changed := 0
+	var maximum_edit := 0.0
+	var protected_unchanged := true
+	var old_slope_energy := 0.0
+	var new_slope_energy := 0.0
 	var dry := 0
 	var gentle := 0
 	var finite := true
@@ -62,6 +71,15 @@ func _check_landscape(terrain: Terrain3D) -> void:
 	for z in range(1, 1023):
 		for x in range(1, 1023):
 			var h := height.get_pixel(x, z).r
+			var old := before.get_pixel(x, z).r
+			var edit := absf(h - old)
+			maximum_edit = maxf(maximum_edit, edit)
+			if old <= 8 or old >= 58:
+				protected_unchanged = protected_unchanged and h == old
+			if edit > 0.0001:
+				changed += 1
+				old_slope_energy += pow(_slope(before, x, z), 2)
+				new_slope_energy += pow(_slope(height, x, z), 2)
 			finite = finite and is_finite(h)
 			max_step = maxf(max_step, absf(h - height.get_pixel(x + 1, z).r))
 			max_step = maxf(max_step, absf(h - height.get_pixel(x, z + 1).r))
@@ -77,6 +95,12 @@ func _check_landscape(terrain: Terrain3D) -> void:
 					if z >= 700 and z <= 900 and h > 20:
 						southern_elevated_gentle += 1
 	_check(height.get_size() == Vector2i(1024, 1024) and finite, "saved 1024-square heightmap has no invalid heights")
+	_check(changed > 1000 and changed < 200000 and maximum_edit < 1, "local polish changes less than 200000 cells by less than one meter instead of rebuilding the island")
+	_check(protected_unchanged, "Task 7.7 waterlines beaches lake island and high crests remain exactly unchanged")
+	var saved: Terrain3DRegion = terrain.data.get_region(Vector2i.ZERO)
+	_check(saved.get_control_map().get_data() == previous.get_control_map().get_data() and saved.get_color_map().get_data() == previous.get_color_map().get_data(), "native control and color maps retain Task 7.7 bytes")
+	_check(new_slope_energy < old_slope_energy, "edited transitions reduce aggregate squared slope while retaining the wider landscape")
+	print("LOCAL POLISH METRICS: changed=", changed, " maximum edit=", maximum_edit, " m; slope energy before=", old_slope_energy, " after=", new_slope_energy)
 	_check(dry > 550000 and gentle > 300000, "over 550000 square meters dry and 300000 below 20 degrees")
 	_check(southern_elevated_gentle > 30000, "southern terraces and hills contain over 30000 square meters of gentle elevated usable land")
 	print("SOUTHERN ELEVATED GENTLE: ", southern_elevated_gentle, " m2")
