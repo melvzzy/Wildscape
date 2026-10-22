@@ -4,11 +4,13 @@ extends CharacterBody3D
 
 @export_group("Movement")
 @export var walk_speed: float = 4.5
-@export var sprint_speed: float = 7.0
+@export var sprint_speed: float = 6.2
+@export var sprint_acceleration: float = 2.0
 @export var acceleration: float = 22.0
 @export var deceleration: float = 28.0
 @export var air_acceleration: float = 6.0
-@export var jump_speed: float = 6.0
+@export_range(0.1, 5.0, 0.05) var jump_height: float = 1.5
+@export_range(0.1, 5.0, 0.05) var gravity_multiplier: float = 1.4
 @export var turn_speed: float = 14.0
 @export_group("Camera")
 ## Radians per mouse pixel; independent of frame rate.
@@ -24,10 +26,12 @@ extends CharacterBody3D
 var first_person: bool = false
 var controls_active: bool = false
 var _spawn_transform: Transform3D
+var _move_speed: float = 0.0
 
 
 func _ready() -> void:
 	_spawn_transform = global_transform
+	_move_speed = walk_speed
 	camera_yaw.global_position = global_position + Vector3.UP * 1.62
 	camera_yaw.rotation.y = global_rotation.y
 	spring_arm.add_excluded_object(get_rid())
@@ -68,17 +72,22 @@ func _physics_process(delta: float) -> void:
 	var direction := camera_yaw.global_basis * Vector3(input_vector.x, 0.0, input_vector.y)
 	direction.y = 0.0
 	direction = direction.normalized() * minf(input_vector.length(), 1.0)
-	var speed := sprint_speed if Input.is_action_pressed("sprint") else walk_speed
+	var wants_sprint := controls_active and not direction.is_zero_approx() and Input.is_action_pressed("sprint")
+	var target_speed := sprint_speed if wants_sprint else walk_speed
+	var speed_rate := sprint_acceleration if wants_sprint else deceleration
+	_move_speed = move_toward(_move_speed, target_speed, speed_rate * delta)
 	var rate := acceleration if not direction.is_zero_approx() else deceleration
 	if not is_on_floor():
 		rate = air_acceleration
-		velocity += get_gravity() * delta
+		velocity += get_gravity() * gravity_multiplier * delta
 	elif velocity.y < 0.0:
 		velocity.y = 0.0
-	velocity.x = move_toward(velocity.x, direction.x * speed, rate * delta)
-	velocity.z = move_toward(velocity.z, direction.z * speed, rate * delta)
+	velocity.x = move_toward(velocity.x, direction.x * _move_speed, rate * delta)
+	velocity.z = move_toward(velocity.z, direction.z * _move_speed, rate * delta)
 	if controls_active and Input.is_action_just_pressed("jump") and is_on_floor():
-		velocity.y = jump_speed
+		var gravity_strength := get_gravity().length() * gravity_multiplier
+		# Compensate the discrete launch step so configured height stays accurate.
+		velocity.y = sqrt(2.0 * gravity_strength * jump_height) - 0.5 * gravity_strength * delta
 	move_and_slide()
 	camera_yaw.global_position = global_position + Vector3.UP * 1.62
 	if first_person:
@@ -104,6 +113,7 @@ func set_mouse_captured(captured: bool) -> void:
 func reset_to_spawn() -> void:
 	global_transform = _spawn_transform
 	velocity = Vector3.ZERO
+	_move_speed = walk_speed
 	camera_yaw.rotation = Vector3(0.0, _spawn_transform.basis.get_euler().y, 0.0)
 	camera_pitch.rotation = Vector3(-0.15, 0.0, 0.0)
 	reset_physics_interpolation()

@@ -1,4 +1,6 @@
-[gd_scene load_steps=85 format=3]
+[gd_scene load_steps=86 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/playground/interaction_area.tscn" id="1_interactions"]
 
 [sub_resource type="ProceduralSkyMaterial" id="SkyMaterial"]
 sky_top_color = Color(0.22, 0.39, 0.56, 1)
@@ -874,7 +876,7 @@ modulate = Color(0.95, 0.95, 0.86, 1)
 
 [node name="Instructions" type="Label3D" parent="."]
 position = Vector3(-5, 2.4, 14)
-text = "WILDSCAPE / PLAYGROUND\nWASD move | Shift sprint | Space jump\nV FPS / TPS | Mouse look\nEsc release | Click capture | R reset"
+text = "WILDSCAPE / PLAYGROUND\nWASD move | Shift sprint | Space jump\nV FPS / TPS | Mouse look | E interact\nEsc release | Click capture | R reset"
 font_size = 24
 pixel_size = 0.006
 outline_size = 8
@@ -927,4 +929,7 @@ mesh = SubResource("Mesh37")
 
 [node name="Collision" type="CollisionShape3D" parent="BoundaryEast"]
 shape = SubResource("Shape37")
+
+[node name="InteractionArea" parent="." instance=ExtResource("1_interactions")]
+position = Vector3(-9, 0, 11)
 

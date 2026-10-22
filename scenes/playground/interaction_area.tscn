@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/playground/interaction_test_object.tscn" id="1_object"]
+
+[node name="InteractionArea" type="Node3D"]
+
+[node name="Switch" parent="." instance=ExtResource("1_object")]
+position = Vector3(-3, 0, 0)
+behavior = 0
+
+[node name="Beacon" parent="." instance=ExtResource("1_object")]
+behavior = 1
+
+[node name="Token" parent="." instance=ExtResource("1_object")]
+position = Vector3(3, 0, 0)
+behavior = 2
+
+[node name="ZoneLabel" type="Label3D" parent="."]
+position = Vector3(0, 2.8, 0)
+text = "INTERACTION TESTS\nAim at object / E within 2.5 m"
+font_size = 30
+pixel_size = 0.009
+outline_size = 8

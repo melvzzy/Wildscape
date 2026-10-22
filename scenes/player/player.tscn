@@ -1,6 +1,7 @@
-[gd_scene load_steps=13 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://scenes/player/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scenes/player/player_interaction.gd" id="2_interaction"]
 
 [sub_resource type="CapsuleShape3D" id="BodyShape"]
 radius = 0.3
@@ -114,4 +115,53 @@ current = true
 fov = 75.0
 near = 0.05
 far = 160.0
+
+[node name="Interaction" type="Node" parent="."]
+script = ExtResource("2_interaction")
+
+[node name="HUD" type="CanvasLayer" parent="Interaction"]
+
+[node name="Root" type="Control" parent="Interaction/HUD"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="AimDot" type="Label" parent="Interaction/HUD/Root"]
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -5.0
+offset_top = -12.0
+offset_right = 5.0
+offset_bottom = 12.0
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_constants/outline_size = 4
+text = "·"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Prompt" type="Label" parent="Interaction/HUD/Root"]
+visible = false
+layout_mode = 0
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -220.0
+offset_top = 34.0
+offset_right = 220.0
+offset_bottom = 62.0
+mouse_filter = 2
+theme_override_colors/font_outline_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+vertical_alignment = 1
 

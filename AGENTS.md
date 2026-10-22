@@ -10,4 +10,5 @@
 - Main composes the reusable player and development playground. Keep movement/collision in the player script and replaceable geometry under Visuals. Gameplay beyond the controller/playground still requires a specific request.
 - After project/resource changes, run headless import and a bounded startup as documented in README.md. Check output and exit codes; headless success does not validate graphics. Test graphical startup when available and report any untested behavior.
 - Run tests/player_smoke_test.gd after controller, camera, input or collision changes. It uses native Godot physics and simulated input; no external test framework is required. Interactive camera feel and visual quality still need manual testing.
+- Also run tests/interaction_smoke_test.gd after movement/interaction changes. WorldInteractable is the local interaction contract; keep interactables and blockers on the World layer. Camera aim, player-eye range and player-eye line of sight must all pass before activation. Do not add global interaction managers.
 - Do not install tools/plugins or create commits, pushes or merges without user authorization.

@@ -71,7 +71,7 @@ func _run() -> void:
 	Input.action_press("move_forward")
 	Input.action_press("sprint")
 	await _frames(60)
-	_check(start.z - player.position.z > walk_distance + 1.5, "sprint is faster than walk")
+	_check(start.z - player.position.z > walk_distance + 0.5, "gradual sprint is faster than walk")
 	await _place(Vector3(0, 0.05, 17))
 	Input.action_press("move_forward")
 	Input.action_press("move_right")
@@ -85,7 +85,8 @@ func _run() -> void:
 	for frame in range(100):
 		await _frames(1)
 		peak = maxf(peak, player.position.y)
-	_check(peak > 1.2 and player.is_on_floor(), "jump rises and lands under gravity")
+	print("MEASURED standing jump peak: %.3f m" % peak)
+	_check(peak > 1.4 and peak < 1.65 and player.is_on_floor(), "jump peaks near 1.5 meters and lands under gravity")
 	await _place(Vector3(22, 0.05, 15))
 	Input.action_press("move_right")
 	await _frames(60)
