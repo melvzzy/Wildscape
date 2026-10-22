@@ -79,7 +79,12 @@ interact={
 
 inventory={
 "deadzone": 0.2,
-"events": [Object(InputEventKey,"physical_keycode":73)]
+"events": [Object(InputEventKey,"physical_keycode":4194306)]
+}
+
+character={
+"deadzone": 0.2,
+"events": [Object(InputEventKey,"physical_keycode":67)]
 }
 
 [layer_names]

@@ -27,10 +27,11 @@ func _ready() -> void:
 	main_menu_button.pressed.connect(return_to_main_menu)
 	quit_button.pressed.connect(quit_game)
 	inventory_view.close_requested.connect(func() -> void: set_inventory_open(false))
+	inventory_view.character_close_requested.connect(func() -> void: set_character_open(false))
 	main_menu_button.visible = gameplay_mode
 	if gameplay_mode:
 		player = get_parent().get_node("Player")
-		inventory_view.bind_inventory(player.inventory)
+		inventory_view.bind_inventory(player.inventory, player.equipment)
 		heading.text = "PAUSED"
 		subtitle.text = "The wild can wait."
 		primary_button.text = "Resume"
@@ -46,34 +47,45 @@ func _input(event: InputEvent) -> void:
 	if gameplay_mode and event.is_action_pressed("pause") and not event.is_echo():
 		get_viewport().set_input_as_handled()
 		if inventory_view.visible:
-			set_inventory_open(false)
+			_set_windows(false, false)
 		else:
 			set_paused(not get_tree().paused)
 	elif gameplay_mode and event.is_action_pressed("inventory") and not event.is_echo():
 		get_viewport().set_input_as_handled()
 		if not overlay.visible:
-			set_inventory_open(not inventory_view.visible)
+			set_inventory_open(not inventory_view.inventory_panel.visible)
+	elif gameplay_mode and event.is_action_pressed("character") and not event.is_echo():
+		get_viewport().set_input_as_handled()
+		if not overlay.visible:
+			set_character_open(not inventory_view.character_panel.visible)
 
 
 func set_inventory_open(open: bool) -> void:
-	if not gameplay_mode or _transitioning or (open and overlay.visible):
-		return
-	if not open:
-		if inventory_view.visible:
-			set_paused(false)
+	_set_windows(open, inventory_view.character_panel.visible)
+
+
+func set_character_open(open: bool) -> void:
+	_set_windows(inventory_view.inventory_panel.visible, open)
+
+
+func _set_windows(inventory_open: bool, character_open: bool) -> void:
+	var open := inventory_open or character_open
+	if not gameplay_mode or _transitioning or overlay.visible:
 		return
 	_resume_version += 1
-	get_tree().paused = true
+	inventory_view.set_windows(inventory_open, character_open)
+	get_tree().paused = open
 	_apply_input(false)
-	inventory_view.open()
+	if not open:
+		get_viewport().gui_release_focus()
+		_resume_input_when_safe()
 
 
 func set_paused(paused: bool) -> void:
 	if not gameplay_mode or _transitioning:
 		return
 	_resume_version += 1
-	inventory_view.hide()
-	inventory_view.clear_selection()
+	inventory_view.set_windows(false, false)
 	get_tree().paused = paused
 	overlay.visible = paused
 	_apply_input(false)

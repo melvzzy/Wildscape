@@ -23,16 +23,20 @@ The gameplay scene composes two independent, reusable scenes:
 | Mouse | Look / orbit |
 | V | Switch TPS / FPS |
 | E | Interact with the targeted object within reach |
-| I | Open / close inventory |
-| Escape | Pause / resume gameplay |
-| R | Return to initial spawn and reset view |
+| Tab | Open / close inventory (right) |
+| C | Open / close character equipment (left) |
+| Escape | Close both item windows, or pause / resume gameplay |
+| Left mouse drag | Move / merge items or equip / unequip |
+| Shift + left mouse drag | Move half a stack, rounded down |
+| R | Rotate dragged item; during gameplay return to spawn and reset view |
 
 Menus support mouse clicks and arrow keys / Enter. Pause offers Resume, Main Menu
 and Quit. Losing application focus pauses gameplay and releases the cursor;
 returning focus keeps the pause menu open until explicitly resumed. Clicking a
 menu background never captures the cursor. Falling below -12 m returns to spawn.
-While inventory is open, Escape closes it directly into gameplay. The inventory
-is unavailable from the main menu or pause menu.
+Either item window pauses gameplay and releases the mouse. Both can remain open;
+closing one keeps gameplay paused until the last closes. Escape closes both
+directly into gameplay. They are unavailable from the main menu or pause menu.
 
 ## Menu ownership, pause and display
 
@@ -208,24 +212,35 @@ return the item only if a matching stack or the complete footprint can accept it
 -1 chooses a matching stack/free position for the requested orientation; callers
 can request rotation when needed. Failed unequip retains the equipped item.
 Both data owners are committed before observers run and emit one change each.
-Reads return snapshots. All six slots start empty. There is no equipment UI,
-attribute system, effects, handedness or backpack behavior.
+Reads return snapshots. All six slots start empty. There is no attribute system,
+equipment effects, handedness or backpack behavior.
 
-## Existing inventory UI and Task 4.2 boundary
+## Grid inventory and character UI
 
-`scenes/inventory/inventory_view.tscn` observes and requests operations without
-owning item data. I opens the existing grid and releases the cursor; gameplay,
-physics and E interactions pause. I, Escape or Close resumes through the existing
-controller. Click a stack then an empty/matching slot to move or merge it.
-Split Half followed by an empty slot creates a separate half stack (rounded down).
-Selecting the same slot or Deselect cancels selection. Focus loss replaces the
-inventory with the pause menu and preserves quantities. Its columns now follow
-the model width; covered-cell buttons resolve and highlight their anchor. The
-existing scroll area exposes additional rows. This is a compatibility adaptation,
-not a new multi-cell UI. Rotation and equipment are data APIs only for now.
-Task 4.2 should add footprint rendering, drag/drop previews via the shared model
-validators, rotation controls and an equipment view calling equip/unequip APIs.
-No dropping, world pickups, crafting or persistence are implemented.
+`scenes/inventory/inventory_view.tscn` observes injected player-owned inventory and
+equipment. Its script constructs two anchored PanelContainers with VBox/Margin
+layouts: inventory on the right, character on the left. Both retain their positions
+when the other closes. A neutral drawn silhouette sits among the six named gear
+slots. `inventory_board.gd` only draws: square grid cells share single thin lines,
+and each stack occupies one rectangle matching its full footprint. Charcoal panels,
+neutral item markers and quantities require no external assets. The 600-unit square
+drawing area fits configurable grid dimensions with one shared cell size; the
+default 6x6 grid uses 100-unit cells. Both panels fit the 1920x1080 reference and
+scale with the existing canvas configuration, including 800x600 windowed mode.
+
+Left-drag to move or merge; Shift-drag takes half, rounded down (minimum one).
+R toggles the dragged footprint by 90 degrees. Green/red overlays preview valid
+and invalid destinations using the model's placement/transfer/equipment APIs.
+Drop onto compatible empty equipment to equip exactly one unit; drag it back to
+the grid to unequip, optionally rotated. Occupied gear slots reject; there are no
+implicit swaps. Partial merges leave overflow at the source. Source data remains
+unchanged throughout a drag; release outside, Escape, window changes and focus
+loss cancel safely. A changed source snapshot also rejects stale drops.
+
+Tab/C/Close buttons route through MenuController, which alone controls pause and
+mouse capture. Escape closes both windows. Focus loss replaces them with the
+pause menu and preserves all quantities. No world dropping, pickups, crafting,
+attributes, container UI or persistence are implemented.
 
 For populated examples, open **`tests/fixtures/inventory_demo.tscn` with F6**.
 Only this isolated fixture seeds 17 Alpha, 6 Beta and 1 Gamma and opens inventory.
@@ -273,8 +288,11 @@ explicit Nx1 grids using 1x1 test-definition copies; production footprints are
 covered separately. Grid/equipment adds 60 checks across all five requested shapes,
 blocked/overlapping placement, rotations, fragmented space, partial transfers,
 every equipment slot and 400 deterministic mixed operations with conservation.
-Inventory UI has 32 headless checks (33 graphical) for empty ownership, controls, model binding, slot operations,
-focus/pause compatibility and layout at 1920 x 1080, 1280 x 720 and 800 x 600.
+Inventory UI covers empty ownership, actual mouse/key dispatch, independent
+windows, model binding, multi-cell drag/drop, rotation, partial merges, splitting,
+equipment, stale sources, cancellation, focus/pause compatibility and layout at
+1920 x 1080, 1280 x 720 and 800 x 600: currently 59 headless / 60 graphical
+assertions. Counts and executed results are recorded below.
 
 Headless drivers cannot capture a physical cursor; regression tests use the
 player input gate separately from OS cursor state. Restricted execution may block
@@ -333,5 +351,25 @@ grids and legacy definitions are copied as 1x1 fixtures, preserving all original
 and six columns; Alpha move/split targets shifted from cells 5/6 to 6/7 because
 Gamma now covers cell 5. Two new UI checks verify initially empty equipment and
 covered-cell ownership. Player, interaction and menu test sources are unchanged.
-Task 4.2 still needs a dedicated multi-cell/equipment interface and interaction
-design; no drag/drop, rotation key or equip buttons were added in Task 4.1.
+No drag/drop, rotation key or equip buttons were added in Task 4.1; these are now
+implemented by Task 4.2 without changes to the inventory/equipment data models.
+
+Task 4.2 verification on 2026-10-22: the full graphical runner passed **355
+assertion executions** (23 player, 26 interaction, 39 menu, 49 inventory model,
+60 grid/equipment, 58 inventory UI, plus 41 menu and 59 UI graphical repeats).
+Import, bounded main-menu/direct-gameplay startup and graphical startup passed
+with no logged errors. After the final redundant-window-close pause guard and
+drag-label polish, focused reruns passed **39 menu, 59 headless UI and 60 graphical
+UI checks**, again with exit 0 and no logged errors. The extra UI assertion
+ensures window-close requests cannot silently unpause the pause menu.
+
+Rendered empty/populated windows at 1920x1080, 1280x720 and 800x600 and valid/invalid
+drag previews were visually inspected. Two-digit quantities and shared grid lines
+were corrected after visual inspection. The old per-cell Button assertions were
+replaced with real mouse press/motion/release tests and footprint checks; previous
+ownership, move/split/merge, observer, pause, focus and fresh-session coverage is
+retained. The five non-UI suite sources and both data models are unchanged.
+The graphical tests use synthetic input and focus notifications, not a physical
+mouse/keyboard playtest. At 800x600 labels are necessarily small; unusual DPI,
+ultrawide/portrait layouts and exports remain unverified. No plugins or dependencies
+were added, and no commits, pushes or merges were created.
