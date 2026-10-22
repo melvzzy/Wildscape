@@ -1,0 +1,6 @@
+# Godot-generated import cache and editor state.
+/.godot/
+
+# Local exports and credentials; keep export_presets.cfg versioned when added.
+/builds/
+/export_credentials.cfg
