@@ -28,7 +28,7 @@ seamless = true
 [sub_resource type="Terrain3DMaterial" id="TerrainMaterial"]
 _shader_parameters = {
 &"bias_distance": 512.0,
-"blend_sharpness": 0.15,
+"blend_sharpness": 0.0,
 &"depth_blur": 0.0,
 &"enable_macro_variation": true,
 &"enable_projection": true,
@@ -78,14 +78,14 @@ size = Vector2(10000, 10000)
 
 [sub_resource type="PlaneMesh" id="LakeMesh"]
 material = SubResource("WaterMaterial")
-size = Vector2(100, 95)
+size = Vector2(160, 150)
 
 [node name="Island" type="Node3D" unique_id=526195769]
 process_mode = 1
 
 [node name="Terrain3D" type="Terrain3D" parent="." unique_id=1778616190]
-region_size = 512
-mesh_size = 64
+region_size = 1024
+mesh_size = 128
 data_directory = "res://scenes/island/data"
 material = SubResource("TerrainMaterial")
 assets = ExtResource("3_assets")
@@ -105,17 +105,22 @@ shadow_enabled = true
 directional_shadow_max_distance = 160.0
 
 [node name="Sea" type="MeshInstance3D" parent="." unique_id=703688080]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 256, 0, 256)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 512, 0, 512)
 cast_shadow = 0
 mesh = SubResource("WaterMesh")
 
 [node name="Lake" type="MeshInstance3D" parent="."]
-position = Vector3(282, 5, 275)
+position = Vector3(535, 5, 525)
 cast_shadow = 0
 mesh = SubResource("LakeMesh")
 
 [node name="Player" parent="." unique_id=1771068441 instance=ExtResource("1_player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 252, 7.72, 367)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 500, 11.38, 650)
 
 [node name="Menu" parent="." unique_id=395129842 instance=ExtResource("2_menu")]
 gameplay_mode = true
+
+[node name="Camera3D" parent="Player/CameraYaw/CameraPitch/SpringArm3D" index="0"]
+far = 1800.0
+
+[editable path="Player"]

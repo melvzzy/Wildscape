@@ -8,8 +8,9 @@ art direction and later gameplay systems remain undecided.
 
 Import `project.godot` into Godot and press F5 for the main menu, then choose Play
 to explore `scenes/island/island.tscn`. Open that scene and press F6 for direct
-island development. Its saved, editable Terrain3D region is 512 x 512 m, with
-roughly 114,000 m² dry land, broad connected lowlands and an off-center lake.
+island development. Its saved, editable Terrain3D region is 1024 x 1024 m, with
+roughly 460,000 m² dry land, two branching mountain ranges, broad connected
+lowlands and a lake.
 See [island authoring and verification](scenes/island/README.md).
 
 Open `scenes/main.tscn` and press F6 for the original development playground,

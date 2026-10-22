@@ -1,6 +1,7 @@
 param(
     [string]$GodotPath = 'godot',
-    [switch]$Graphical
+    [switch]$Graphical,
+    [switch]$TerrainOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -41,6 +42,19 @@ function Invoke-GodotCheck {
 }
 
 Invoke-GodotCheck 'import' '--headless --import'
+if ($TerrainOnly) {
+    Invoke-GodotCheck 'island' '--headless --script res://tests/island_test.gd' 'ISLAND'
+    Invoke-GodotCheck 'terrain-preflight' '--headless --script res://tests/terrain_preflight_test.gd' 'TERRAIN PREFLIGHT'
+    Invoke-GodotCheck 'startup-headless' '--headless --quit-after 120'
+    Invoke-GodotCheck 'gameplay-headless' '--headless --scene res://scenes/main.tscn --quit-after 120'
+    if ($Graphical) {
+        Invoke-GodotCheck 'startup-graphics' '--quit-after 120'
+        Invoke-GodotCheck 'island-graphics' '--script res://tests/island_test.gd -- --capture-island' 'ISLAND'
+        Invoke-GodotCheck 'island-survey' '--script res://tests/island_visual_survey.gd -- --survey=after'
+    }
+    Write-Output "TERRAIN CHECKS PASSED: $script:checkTotal assertions; logs in $logRoot"
+    return
+}
 Invoke-GodotCheck 'smoke' '--headless --script res://tests/player_smoke_test.gd' 'SMOKE'
 Invoke-GodotCheck 'interaction-smoke' '--headless --script res://tests/interaction_smoke_test.gd' 'INTERACTION'
 Invoke-GodotCheck 'menu-flow' '--headless --script res://tests/menu_flow_test.gd' 'FLOW'
