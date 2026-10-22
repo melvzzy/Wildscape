@@ -8,3 +8,5 @@ item_id = &"test_beta"
 display_name = "Test Beta"
 description = "Neutral stackable test item B."
 max_stack_size = 5
+grid_size = Vector2i(1, 2)
+equipment_slots = 9

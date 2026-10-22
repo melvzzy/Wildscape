@@ -31,6 +31,7 @@ func bind_inventory(inventory: SlotInventory) -> void:
 	_buttons.clear()
 	if _inventory != null:
 		_inventory.changed.connect(_refresh)
+		grid.columns = _inventory.get_grid_size().x
 		for index in range(_inventory.get_capacity()):
 			var button := Button.new()
 			button.custom_minimum_size = Vector2(145, 110)
@@ -68,17 +69,21 @@ func _refresh() -> void:
 		_selected = -1
 		_splitting = false
 	for index in range(_buttons.size()):
-		var stack := _inventory.get_stack(index)
+		var anchor := _inventory.get_anchor_at(index)
+		var stack := _inventory.get_stack(anchor)
 		var button := _buttons[index]
 		button.icon = null
 		if stack == null:
 			button.text = "%02d\n—\nEmpty" % (index + 1)
 		else:
 			var definition := _inventory.get_definition(stack.item_id)
-			var marker := "[" + definition.display_name.left(1) + "]"
-			button.text = "%02d  %s\n%s\n%d / %d" % [index + 1, marker, definition.display_name, stack.quantity, definition.max_stack_size]
-			button.icon = definition.icon
-		button.modulate = Color(1.0, 0.85, 0.48) if index == _selected else Color.WHITE
+			if anchor != index:
+				button.text = "%02d\nCovered → %02d" % [index + 1, anchor + 1]
+			else:
+				var marker := "[" + definition.display_name.left(1) + "]"
+				button.text = "%02d  %s\n%s\n%d / %d" % [index + 1, marker, definition.display_name, stack.quantity, definition.max_stack_size]
+				button.icon = definition.icon
+		button.modulate = Color(1.0, 0.85, 0.48) if anchor == _selected and anchor >= 0 else Color.WHITE
 	split_button.disabled = selected_stack == null or selected_stack.quantity < 2
 	deselect_button.disabled = selected_stack == null
 	if _splitting:
@@ -92,6 +97,9 @@ func _refresh() -> void:
 func _slot_pressed(index: int) -> void:
 	if _inventory == null:
 		return
+	var anchor := _inventory.get_anchor_at(index)
+	if anchor >= 0:
+		index = anchor
 	if _selected < 0:
 		if _inventory.get_stack(index) != null:
 			_selected = index

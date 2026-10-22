@@ -69,11 +69,15 @@ func _run() -> void:
 	var empty := true
 	for index in range(inventory.get_capacity()):
 		empty = empty and inventory.get_stack(index) == null
-	_check(inventory.get_capacity() == 20 and empty, "normal player owns twenty empty slots with no automatic items")
+	_check(inventory.get_capacity() == 36 and inventory.get_grid_size() == Vector2i(6, 6) and empty, "normal player owns a 6x6 empty grid with no automatic items")
+	var gear_empty := true
+	for slot in range(6):
+		gear_empty = gear_empty and player.equipment.get_stack(slot) == null
+	_check(gear_empty, "player owns six initially empty equipment slots")
 	await _key(KEY_I)
 	_check(paused and view.visible and not menu.overlay.visible and not player.controls_active, "I opens inventory and suspends gameplay without showing pause menu")
 	_check(Input.mouse_mode == Input.MOUSE_MODE_VISIBLE and not player.get_node("Interaction").prompt.visible, "inventory releases mouse and clears interaction HUD")
-	_check(view._buttons.size() == 20 and "Empty" in view._buttons[0].text and root.gui_get_focus_owner() == view._buttons[0], "empty grid has correct slot count and initial keyboard focus")
+	_check(view._buttons.size() == 36 and "Empty" in view._buttons[0].text and root.gui_get_focus_owner() == view._buttons[0], "empty grid has correct slot count and initial keyboard focus")
 	await _capture("inventory-empty")
 	var position := player.position
 	var yaw: float = player.camera_yaw.rotation.y
@@ -123,31 +127,34 @@ func _run() -> void:
 	_check(paused and view.visible and fixture_inventory.count_item(&"test_alpha") == 17 and fixture_inventory.count_item(&"test_beta") == 6 and fixture_inventory.count_item(&"test_gamma") == 1, "only the isolated fixture starts with populated test stacks")
 	_check(inventory.count_item(&"test_alpha") == 0 and fixture_inventory != inventory, "fixture data is separate from the normal player inventory")
 	_check("Test Alpha" in view._buttons[0].text and "10 / 10" in view._buttons[0].text and "Test Gamma" in view._buttons[4].text, "grid displays item placeholders, names and quantities")
+	view._buttons[8].pressed.emit()
+	_check(view._selected == 2 and view._buttons[8].modulate == view._buttons[2].modulate and "Covered" in view._buttons[8].text and fixture_inventory.get_stack(8) == null, "covered cell selects and highlights its owning stack without duplicating data")
+	view.clear_selection()
 	view._buttons[1].pressed.emit()
-	view._buttons[5].pressed.emit()
-	_check(fixture_inventory.get_stack(1) == null and fixture_inventory.get_stack(5).quantity == 7 and "Empty" in view._buttons[1].text, "slot clicks request a model move and refresh from its notification")
-	view._buttons[5].pressed.emit()
+	view._buttons[6].pressed.emit()
+	_check(fixture_inventory.get_stack(1) == null and fixture_inventory.get_stack(6).quantity == 7 and "Empty" in view._buttons[1].text, "slot clicks request a model move and refresh from its notification")
+	view._buttons[6].pressed.emit()
 	view.split_button.pressed.emit()
+	view._buttons[7].pressed.emit()
+	_check(fixture_inventory.get_stack(6).quantity == 4 and fixture_inventory.get_stack(7).quantity == 3 and fixture_inventory.count_item(&"test_alpha") == 17, "Split Half requests a conserving split, rounding down")
+	view._buttons[7].pressed.emit()
 	view._buttons[6].pressed.emit()
-	_check(fixture_inventory.get_stack(5).quantity == 4 and fixture_inventory.get_stack(6).quantity == 3 and fixture_inventory.count_item(&"test_alpha") == 17, "Split Half requests a conserving split, rounding down")
+	_check(fixture_inventory.get_stack(7) == null and fixture_inventory.get_stack(6).quantity == 7, "slot clicks merge matching stacks")
 	view._buttons[6].pressed.emit()
-	view._buttons[5].pressed.emit()
-	_check(fixture_inventory.get_stack(6) == null and fixture_inventory.get_stack(5).quantity == 7, "slot clicks merge matching stacks")
-	view._buttons[5].pressed.emit()
 	view._buttons[0].pressed.emit()
-	_check(fixture_inventory.get_stack(5).quantity == 7 and "No change" in view.status.text, "full destination is rejected without UI-side quantity edits")
+	_check(fixture_inventory.get_stack(6).quantity == 7 and "No change" in view.status.text, "full destination is rejected without UI-side quantity edits")
 	view._buttons[2].pressed.emit()
 	_check(fixture_inventory.get_stack(2).item_id == &"test_beta" and fixture_inventory.count_item(&"test_alpha") == 17, "UI cannot overwrite another item type")
 	view.clear_selection()
 	fixture_inventory.add(&"test_alpha", 1)
-	_check("8 / 10" in view._buttons[5].text, "external model changes refresh the observing UI")
+	_check("8 / 10" in view._buttons[6].text, "external model changes refresh the observing UI")
 	for size in [Vector2i(1920, 1080), Vector2i(1280, 720), Vector2i(800, 600)]:
 		root.size = size
 		await _frames()
 		var panel: Control = view.get_node("Center/Panel")
-		_check(root.get_visible_rect().encloses(panel.get_global_rect()) and view.grid.columns == 5 and is_equal_approx(view._buttons[0].size.x, view._buttons[4].size.x), "inventory panel and symmetric grid fit %s" % size)
+		_check(root.get_visible_rect().encloses(panel.get_global_rect()) and view.grid.columns == 6 and is_equal_approx(view._buttons[0].size.x, view._buttons[4].size.x), "inventory panel and symmetric grid fit %s" % size)
 		await _capture("inventory-populated-%dx%d" % [size.x, size.y])
-	var alternate := SlotInventory.new(ItemCatalog.new([load("res://data/items/test_alpha.tres")]), 8)
+	var alternate := SlotInventory.new(ItemCatalog.new([load("res://data/items/test_alpha.tres")]), 8, 1)
 	view.bind_inventory(alternate)
 	alternate.add(&"test_alpha", 3)
 	_check(view._buttons.size() == 8 and not fixture_inventory.changed.is_connected(view._refresh) and "3 / 10" in view._buttons[0].text, "view can rebind capacity/model and disconnect its old observer")

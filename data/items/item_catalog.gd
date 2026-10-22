@@ -43,3 +43,15 @@ func get_definition(item_id: StringName) -> ItemDefinition:
 func get_stack_limit(item_id: StringName) -> int:
 	var definition: ItemDefinition = _items.get(item_id)
 	return definition.max_stack_size if definition != null else 0
+
+
+func get_item_size(item_id: StringName, rotated: bool = false) -> Vector2i:
+	var definition: ItemDefinition = _items.get(item_id)
+	if definition == null:
+		return Vector2i.ZERO
+	return Vector2i(definition.grid_size.y, definition.grid_size.x) if rotated else definition.grid_size
+
+
+func can_equip(item_id: StringName, slot: int) -> bool:
+	var definition: ItemDefinition = _items.get(item_id)
+	return definition != null and slot >= 0 and slot < 6 and (definition.equipment_slots & (1 << slot)) != 0

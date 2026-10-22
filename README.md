@@ -132,13 +132,15 @@ Each object owns its display material. Restart the scene to restore the beacon
 and token; R only resets the player. The test token does not add inventory items.
 Neither object states nor inventory contents are saved.
 
-## Items and slot inventory
+## Items and grid inventory
 
 `data/items/item_definition.gd` defines static Godot Resources with a stable
 `item_id`, display name, optional description, maximum stack size, optional
 Texture2D icon and optional PackedScene world model. No final art is assigned.
-The three neutral resources are Test Alpha (stack 10), Test Beta (stack 5), and
-Test Gamma (stack 1). IDs are explicit lowercase ASCII identifiers beginning
+The four neutral resources are Test Alpha (1x1, stack 10), Test Beta (1x2,
+stack 5), Test Gamma (2x1, stack 1), and Test Delta (2x3, stack 1).
+`grid_size` stores the static footprint and `equipment_slots` the six-bit
+compatibility mask; neither field is mutable inventory state. IDs are explicit lowercase ASCII identifiers beginning
 with a letter; limits must be between 1 and 1,000,000 and names nonblank.
 Keep IDs stable independently of display names and file renames.
 
@@ -148,36 +150,82 @@ snapshots of authoring definitions and returns copies, so callers cannot change
 live inventory rules by editing a Resource. Unknown lookups return null/0.
 
 `data/inventory/slot_inventory.gd` is a scene/UI-independent RefCounted model.
-The player owns a fresh instance, configured by exported capacity and item
-definitions. Its default 20 slots are always empty in normal gameplay. Slots are
-null or internal InventoryStack objects containing only an ID and quantity.
-`get_stack()` returns a detached snapshot, never a writable live stack.
+The player owns a fresh instance configured by exported `inventory_grid_size`
+and item definitions. The default **6x6 grid / 36 cells is always empty** in normal
+gameplay. Construct it with `SlotInventory.new(catalog, width, height)`; omitting
+both dimensions means 6x6. A former linear capacity N is now explicitly Nx1.
+Dimensions are fixed at construction; runtime resizing is not implemented.
+
+Each stack is stored once at its top-left anchor, with ID, quantity and a rotation
+flag. `get_stack(anchor)` returns a detached snapshot including its Vector2i
+position and rotation. Row-major indices convert through `cell_to_index()` and
+`index_to_cell()`. **A null get_stack(cell) does not imply an empty cell:** it may
+be covered by another anchor. Use `get_anchor_at(cell)` (-1 means empty).
+Occupancy is derived from anchors and footprints; there is no second mutable map
+that could become stale. Counts sum anchors once, regardless of occupied area.
 
 | Operation | Result / rules |
 | --- | --- |
-| `add(id, quantity)` | Actual count accepted; existing stacks fill first, then empty slots. Caller retains responsibility for `requested - accepted`. |
+| `add(id, quantity)` | Actual count accepted; fills existing stacks, then row-major fitting footprints, trying rotated placement if necessary. Caller handles `requested - accepted`. |
+| `add_at(id, quantity, cell, rotated = false)` | Actual count accepted at a particular Vector2i anchor; validates the entire footprint or merges at a matching existing anchor. |
 | `remove(id, quantity)` | Actual count removed, potentially less than requested; exhausted slots become empty. |
-| `move_stack(from, to, quantity = -1)` | Actual count moved/merged; -1 means all available. Different target items are rejected, never overwritten or swapped. |
+| `move_stack(from, to, quantity = -1, rotate = false)` | Actual count moved/merged; -1 means all. rotate toggles orientation during the move. Different items are rejected, never overwritten/swapped. |
 | `split_stack(from, to, quantity)` | Exact split into an empty slot; true on success. Amount must be positive and smaller than the source. |
-| `transfer_to(destination, from, to, quantity = -1)` | Actual count transferred; destination capacity limits the amount, remainder stays at source. Both sides commit before signals. |
+| `transfer_to(destination, from, to, quantity = -1, rotate = false)` | Actual count transferred; fits the full footprint at a new anchor or partially merges into a matching stack. Remainder stays at source; both owners commit before signals. |
+| `rotate_stack(anchor)` | Toggle width/height (0/90 degrees); blocked rotations do nothing. Rectangular 180/270 footprints are equivalent to these two orientations. |
 | `get_capacity()`, `count_item(id)`, `get_definition(id)`, `get_catalog()` | Read/query API; catalog can be shared explicitly with another inventory. |
 
 Invalid indices/quantities, unknown IDs, full/incompatible targets and invalid
 inventories return 0/false without mutation or change notifications. Transfers
 require the same catalog instance, ensuring one authoritative ID/stack definition:
-create a compatible inventory with `SlotInventory.new(source.get_catalog(), 8)`.
+create a compatible inventory with `SlotInventory.new(source.get_catalog(), 4, 2)`.
 Successful operations emit `changed` once per affected inventory (only once for
 same-inventory moves); no notification is emitted halfway through a transfer.
-Capacity is chosen at construction; runtime resizing is not implemented.
+A full same-grid move may overlap its own previous footprint; partial moves and
+splits cannot, because the source still occupies it. Merging retains the target's
+orientation and footprint. Removing a stack frees all covered cells.
+
+Shared placement APIs for Task 4.2 are `can_place(id, cell, rotated, ignore_anchor)`,
+`find_free_position()`, `find_add_position()`, `get_addable_at()` and
+`get_transfer_amount()`. `can_place` checks empty space; get_addable_at also checks
+stack merging/limits. Ignore an existing anchor only when previewing that whole
+stack moving/rotating. Commit methods perform their own validation. Negative
+positions, row wrapping, occupied rectangles and fragmented insufficient space
+are rejected even if the total number of unused cells would be large enough.
+
+## Equipment data
+
+Player also owns `data/inventory/equipment_inventory.gd`, using the same catalog.
+`ItemDefinition.EquipmentSlot` defines Head, Chest, Legs, Feet, Primary, Secondary
+(indices 0..5). Static compatibility flags are data only; neutral Beta supports
+Head/Feet, Gamma Primary/Secondary, and Delta Chest/Legs. These are test assignments,
+not finalized equipment types. Each equipment slot holds exactly one unit.
+
+`is_compatible()`/`can_equip()` validate placement; `equip_from(grid, anchor, slot)`
+takes one quantity from the grid. Occupied/incompatible gear slots reject without
+implicitly swapping. `can_unequip_to()`/`unequip_to(grid, slot, to = -1, rotate = false)`
+return the item only if a matching stack or the complete footprint can accept it.
+-1 chooses a matching stack/free position for the requested orientation; callers
+can request rotation when needed. Failed unequip retains the equipped item.
+Both data owners are committed before observers run and emit one change each.
+Reads return snapshots. All six slots start empty. There is no equipment UI,
+attribute system, effects, handedness or backpack behavior.
+
+## Existing inventory UI and Task 4.2 boundary
 
 `scenes/inventory/inventory_view.tscn` observes and requests operations without
-owning item data. I opens the five-column grid and releases the cursor; gameplay,
+owning item data. I opens the existing grid and releases the cursor; gameplay,
 physics and E interactions pause. I, Escape or Close resumes through the existing
 controller. Click a stack then an empty/matching slot to move or merge it.
 Split Half followed by an empty slot creates a separate half stack (rounded down).
 Selecting the same slot or Deselect cancels selection. Focus loss replaces the
-inventory with the pause menu and preserves quantities. No drag-and-drop,
-equipment, dropping, world pickups or persistence are implemented.
+inventory with the pause menu and preserves quantities. Its columns now follow
+the model width; covered-cell buttons resolve and highlight their anchor. The
+existing scroll area exposes additional rows. This is a compatibility adaptation,
+not a new multi-cell UI. Rotation and equipment are data APIs only for now.
+Task 4.2 should add footprint rendering, drag/drop previews via the shared model
+validators, rotation controls and an equipment view calling equip/unequip APIs.
+No dropping, world pickups, crafting or persistence are implemented.
 
 For populated examples, open **`tests/fixtures/inventory_demo.tscn` with F6**.
 Only this isolated fixture seeds 17 Alpha, 6 Beta and 1 Gamma and opens inventory.
@@ -195,7 +243,7 @@ The reusable PowerShell runner needs only Godot, with no external framework:
 ```
 
 If Godot is on PATH, `-GodotPath` can be omitted. The runner imports the project,
-runs player, interaction, menu flow, inventory model and inventory UI suites, and
+runs player, interaction, menu flow, inventory model, grid/equipment and inventory UI suites, and
 starts both the default main menu and the independent gameplay scene headlessly.
 `-Graphical` additionally checks normal fullscreen startup and runs the menu flow
 with rendered captures at 1920 x 1080, 1280 x 720, 1024 x 768 and 800 x 600.
@@ -220,8 +268,12 @@ independent gameplay startup and Quit. The same flow has 41 graphical checks,
 including borderless fullscreen and actual OS mouse capture.
 Inventory adds 49 pure model checks, including ID validation, invalid operations,
 stack limits, overflow, partial transfers, notifications and 250 deterministic
-mixed operations checking conservation. Inventory UI adds 30 headless checks
-(31 graphical) for empty ownership, controls, model binding, slot operations,
+mixed operations checking conservation. The same 49 assertions are retained as
+explicit Nx1 grids using 1x1 test-definition copies; production footprints are
+covered separately. Grid/equipment adds 60 checks across all five requested shapes,
+blocked/overlapping placement, rotations, fragmented space, partial transfers,
+every equipment slot and 400 deterministic mixed operations with conservation.
+Inventory UI has 32 headless checks (33 graphical) for empty ownership, controls, model binding, slot operations,
 focus/pause compatibility and layout at 1920 x 1080, 1280 x 720 and 800 x 600.
 
 Headless drivers cannot capture a physical cursor; regression tests use the
@@ -236,7 +288,7 @@ walls and under geometry, check camera feel at different frame rates, and try
 real Alt-Tab/focus changes and menu navigation. Automated focus checks simulate
 Godot focus notifications; they do not constitute a physical Alt-Tab playtest.
 There are no animations or packaged-build/export checks yet. Crafting, gathering,
-equipment, world pickups and other gameplay systems remain unimplemented.
+equipment effects, world pickups and other gameplay systems remain unimplemented.
 
 Verified on 2026-10-22 with Godot 4.7.2: project import, 120-iteration headless
 startup, 120-iteration graphical startup, and the physics integration suite all
@@ -266,3 +318,20 @@ executions** with the graphical runner, without logged errors. Import and normal
 startup checks passed. Empty and populated inventory captures were visually
 inspected. Real mouse/keyboard playtesting, unusual DPI/monitor setups and export
 validation remain manual follow-ups; no save/load behavior is claimed.
+
+Task 4.1 verification on 2026-10-22: full graphical runner passed **303 assertion
+executions** (23 player, 26 interaction, 39 menu, 49 legacy inventory model,
+60 grid/equipment, 32 inventory UI, plus graphical repeats of 41 menu and 33
+inventory UI checks). Import, headless/main-menu/direct-gameplay startup and
+graphical startup passed without logged errors. Empty and populated compatibility
+UI captures were inspected. The new 400-operation scenario made 64 successful
+changes and conserved every item across two grids and equipment.
+
+Outdated tests were adapted explicitly: former capacities N now construct Nx1
+grids and legacy definitions are copied as 1x1 fixtures, preserving all original
+49 quantity/limit/notification assertions. UI expectations now require 36 cells
+and six columns; Alpha move/split targets shifted from cells 5/6 to 6/7 because
+Gamma now covers cell 5. Two new UI checks verify initially empty equipment and
+covered-cell ownership. Player, interaction and menu test sources are unchanged.
+Task 4.2 still needs a dedicated multi-cell/equipment interface and interaction
+design; no drag/drop, rotation key or equip buttons were added in Task 4.1.

@@ -19,7 +19,14 @@ func _check(condition: bool, message: String) -> void:
 
 
 func _definitions() -> Array[ItemDefinition]:
-	return [load("res://data/items/test_alpha.tres"), load("res://data/items/test_beta.tres"), load("res://data/items/test_gamma.tres")]
+	# Preserve all original quantity/notification assertions as the 1x1 grid case.
+	# Production footprints are tested separately in grid_inventory_test.gd.
+	var fixtures: Array[ItemDefinition] = []
+	for path in ["res://data/items/test_alpha.tres", "res://data/items/test_beta.tres", "res://data/items/test_gamma.tres"]:
+		var definition := load(path).duplicate() as ItemDefinition
+		definition.grid_size = Vector2i.ONE
+		fixtures.append(definition)
+	return fixtures
 
 
 func _run() -> void:
@@ -47,9 +54,9 @@ func _run() -> void:
 	authoring.max_stack_size = 999
 	protected_catalog.get_definition(&"test_alpha").max_stack_size = 888
 	_check(protected_catalog.get_stack_limit(&"test_alpha") == 10, "catalog snapshots isolate authoring and returned definitions")
-	var inventory := SlotInventory.new(catalog, 3)
+	var inventory := SlotInventory.new(catalog, 3, 1)
 	_check(inventory.is_valid() and inventory.get_capacity() == 3 and inventory.get_stack(0) == null, "configurable inventory starts empty")
-	_check(not SlotInventory.new(catalog, 0).is_valid() and not SlotInventory.new(catalog, -1).is_valid() and not SlotInventory.new(null, 2).is_valid(), "invalid inventory configuration rejected safely")
+	_check(not SlotInventory.new(catalog, 0, 1).is_valid() and not SlotInventory.new(catalog, -1, 1).is_valid() and not SlotInventory.new(null, 2, 1).is_valid(), "invalid inventory configuration rejected safely")
 	var changes := [0]
 	inventory.changed.connect(func() -> void: changes[0] += 1)
 	_check(inventory.add(&"missing", 5) == 0 and inventory.add(&"test_alpha", 0) == 0 and inventory.add(&"test_alpha", -1) == 0 and changes[0] == 0, "invalid adds neither mutate nor notify")
@@ -67,9 +74,9 @@ func _run() -> void:
 	_check(inventory.remove(&"test_alpha", 100) == 18 and inventory.count_item(&"test_alpha") == 0, "remove reports actual quantity when fewer items exist")
 	before = changes[0]
 	_check(inventory.remove(&"missing", 1) == 0 and inventory.remove(&"test_alpha", 0) == 0 and inventory.remove(&"test_alpha", -5) == 0 and changes[0] == before, "invalid or unavailable removals do not notify")
-	var huge := SlotInventory.new(catalog, 2)
+	var huge := SlotInventory.new(catalog, 2, 1)
 	_check(huge.add(&"test_alpha", 9223372036854775807) == 20 and huge.count_item(&"test_alpha") == 20, "huge requested quantities cannot overflow bounded slot arithmetic")
-	inventory = SlotInventory.new(catalog, 4)
+	inventory = SlotInventory.new(catalog, 4, 1)
 	inventory.add(&"test_alpha", 17)
 	_check(inventory.move_stack(0, 2, 3) == 3 and inventory.get_stack(0).quantity == 7 and inventory.get_stack(2).quantity == 3, "move supports partial amounts into an empty slot")
 	_check(inventory.move_stack(2, 1) == 3 and inventory.get_stack(1).quantity == 10 and inventory.get_stack(2) == null, "move merges matching stacks and clears exhausted source")
@@ -78,7 +85,7 @@ func _run() -> void:
 	_check(not inventory.split_stack(3, 2, 4) and not inventory.split_stack(3, 0, 1) and not inventory.split_stack(3, 2, 0) and not inventory.split_stack(3, 2, -1), "invalid splits reject whole, occupied and nonpositive amounts")
 	_check(inventory.split_stack(3, 2, 2) and inventory.count_item(&"test_alpha") == 17, "successful split conserves total quantity")
 	_check(inventory.move_stack(-1, 0) == 0 and inventory.move_stack(0, 4) == 0 and inventory.move_stack(0, 0) == 0 and inventory.move_stack(0, 1, -2) == 0 and inventory.move_stack(0, 1, 0) == 0, "invalid move indices, self-target and quantities are safe")
-	inventory = SlotInventory.new(catalog, 3)
+	inventory = SlotInventory.new(catalog, 3, 1)
 	inventory.add(&"test_alpha", 3)
 	inventory.add(&"test_beta", 4)
 	_check(inventory.move_stack(0, 1) == 0 and inventory.get_stack(1).item_id == &"test_beta" and inventory.count_item(&"test_alpha") == 3, "different items never overwrite one another")
@@ -90,8 +97,8 @@ func _run() -> void:
 
 
 func _test_transfers(catalog: ItemCatalog) -> void:
-	var source := SlotInventory.new(catalog, 3)
-	var destination := SlotInventory.new(catalog, 2)
+	var source := SlotInventory.new(catalog, 3, 1)
+	var destination := SlotInventory.new(catalog, 2, 1)
 	source.add(&"test_alpha", 17)
 	source.add(&"test_beta", 3)
 	destination.add(&"test_alpha", 8)
@@ -106,11 +113,11 @@ func _test_transfers(catalog: ItemCatalog) -> void:
 	_check(notifications[0] == 1 and notifications[1] == 1 and notifications[2], "both inventories notify once only after the complete transfer is committed")
 	_check(source.transfer_to(destination, 0, 1) == 0 and destination.count_item(&"test_gamma") == 1, "transfer cannot replace a different target item")
 	_check(source.transfer_to(destination, 0, 0) == 0 and notifications[0] == 1 and notifications[1] == 1, "full target transfer is a silent no-op")
-	var empty := SlotInventory.new(source.get_catalog(), 2)
+	var empty := SlotInventory.new(source.get_catalog(), 2, 1)
 	_check(source.transfer_to(empty, 1, 0, 100) == 7 and source.get_stack(1) == null and empty.get_stack(0).quantity == 7, "cross-inventory transfer moves only available source items")
 	var before: int = notifications[0]
 	_check(source.transfer_to(source, 0, 1, 3) == 3 and notifications[0] == before + 1, "same-inventory transfer emits just one change notification")
-	var incompatible := SlotInventory.new(ItemCatalog.new(_definitions()), 2)
+	var incompatible := SlotInventory.new(ItemCatalog.new(_definitions()), 2, 1)
 	_check(source.transfer_to(incompatible, 0, 0) == 0 and source.transfer_to(null, 0, 0) == 0, "missing or incompatible destination catalog rejected")
 	_check(source.transfer_to(empty, -1, 0) == 0 and source.transfer_to(empty, 0, 2) == 0 and source.transfer_to(empty, 0, 0, 0) == 0 and source.transfer_to(empty, 0, 0, -4) == 0, "invalid transfer indices and quantities are safe")
 	_check(source.count_item(&"test_alpha") + destination.count_item(&"test_alpha") + empty.count_item(&"test_alpha") == 25 and source.count_item(&"test_beta") == 3, "all transfers conserve each item type")
@@ -118,7 +125,7 @@ func _test_transfers(catalog: ItemCatalog) -> void:
 
 
 func _test_conservation(catalog: ItemCatalog) -> void:
-	var inventories: Array[SlotInventory] = [SlotInventory.new(catalog, 8), SlotInventory.new(catalog, 8)]
+	var inventories: Array[SlotInventory] = [SlotInventory.new(catalog, 8, 1), SlotInventory.new(catalog, 8, 1)]
 	inventories[0].add(&"test_alpha", 27)
 	inventories[0].add(&"test_beta", 11)
 	inventories[0].add(&"test_gamma", 2)

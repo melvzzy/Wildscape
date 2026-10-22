@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scenes/player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scenes/player/player_interaction.gd" id="2_interaction"]
@@ -6,6 +6,7 @@
 [ext_resource type="Resource" path="res://data/items/test_alpha.tres" id="4_alpha"]
 [ext_resource type="Resource" path="res://data/items/test_beta.tres" id="5_beta"]
 [ext_resource type="Resource" path="res://data/items/test_gamma.tres" id="6_gamma"]
+[ext_resource type="Resource" path="res://data/items/test_delta.tres" id="7_delta"]
 
 [sub_resource type="CapsuleShape3D" id="BodyShape"]
 radius = 0.3
@@ -57,7 +58,7 @@ floor_max_angle = 0.7853982
 floor_constant_speed = true
 safe_margin = 0.005
 script = ExtResource("1_player")
-item_definitions = Array[ExtResource("3_definition")]([ExtResource("4_alpha"), ExtResource("5_beta"), ExtResource("6_gamma")])
+item_definitions = Array[ExtResource("3_definition")]([ExtResource("4_alpha"), ExtResource("5_beta"), ExtResource("6_gamma"), ExtResource("7_delta")])
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 position = Vector3(0, 0.89, 0)

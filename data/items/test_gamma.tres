@@ -8,3 +8,5 @@ item_id = &"test_gamma"
 display_name = "Test Gamma"
 description = "Neutral single-stack test item C."
 max_stack_size = 1
+grid_size = Vector2i(2, 1)
+equipment_slots = 48

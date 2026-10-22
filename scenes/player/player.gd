@@ -17,7 +17,7 @@ extends CharacterBody3D
 @export_range(0.0001, 0.01, 0.0001) var mouse_sensitivity: float = 0.0025
 @export var third_person_distance: float = 3.5
 @export_group("Inventory")
-@export_range(1, 1000) var inventory_capacity: int = 20
+@export var inventory_grid_size: Vector2i = Vector2i(6, 6)
 @export var item_definitions: Array[ItemDefinition] = []
 
 @onready var visuals: Node3D = $Visuals
@@ -29,12 +29,15 @@ extends CharacterBody3D
 var first_person: bool = false
 var controls_active: bool = false
 var inventory: SlotInventory
+var equipment: EquipmentInventory
 var _spawn_transform: Transform3D
 var _move_speed: float = 0.0
 
 
 func _ready() -> void:
-	inventory = SlotInventory.new(ItemCatalog.new(item_definitions), inventory_capacity)
+	var catalog := ItemCatalog.new(item_definitions)
+	inventory = SlotInventory.new(catalog, inventory_grid_size.x, inventory_grid_size.y)
+	equipment = EquipmentInventory.new(catalog)
 	if not inventory.is_valid():
 		push_error("Player inventory configuration is invalid")
 	_spawn_transform = global_transform
